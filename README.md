@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# En qué la gasto
 
-## Getting Started
+App para llevar las finanzas del hogar entre dos: cada uno carga sus movimientos desde su cuenta, se ven los gastos fijos del mes, en qué se gasta y cuánto pone cada uno en lo compartido.
 
-First, run the development server:
+Stack: Next.js (App Router) en Vercel + Supabase (Auth y Postgres con RLS).
+
+## Etapa 1 (esta versión)
+
+- Login con email y contraseña; un hogar compartido con código de invitación.
+- Cargar ingresos, gastos y ahorros: categoría con emoji, quién pagó, para quién (o compartido), medio de pago, pendiente o pagado.
+- Fijos del mes: alquiler, servicios y suscripciones como checklist; "Pagado" crea el movimiento.
+- Inicio: disponible del mes, lo que falta pagar, cuánto puso cada uno en lo compartido y la diferencia, gasto por categoría.
+- Movimientos: lista por mes con filtros, editar y borrar.
+- Ajustes: categorías (crear, editar emoji, archivar), medios de pago, ingresos de cada uno, código de invitación.
+- Importar la hoja "Cuentas" del Excel: filas con fecha como movimientos, filas sin fecha como gastos fijos.
+
+## Puesta en marcha
+
+### 1. Supabase
+
+1. Crear un proyecto en [supabase.com](https://supabase.com).
+2. En **SQL Editor > New query**, pegar el contenido de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y ejecutarlo.
+3. En **Authentication > URL Configuration**, poner la URL de Vercel como *Site URL* (por ejemplo `https://en-que-la-gasto.vercel.app`) y agregar `https://en-que-la-gasto.vercel.app/**` en *Redirect URLs*.
+4. En **Project Settings > API** copiar la *Project URL* y la clave *anon / publishable*.
+
+### 2. Vercel
+
+1. Importar el repo de GitHub en [vercel.com/new](https://vercel.com/new).
+2. Agregar las variables de entorno:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. Deploy.
+
+### 3. Primer uso
+
+1. Esteban crea su cuenta, crea el hogar y pone el nombre de su pareja.
+2. En **Ajustes** está el código de invitación: Laila crea su cuenta, elige "Unirme con un código" y lo pega.
+3. En **Ajustes > Importar Excel** se sube `Finanzas.xlsm` una sola vez.
+
+En el celular: abrir la app en el navegador y "Agregar a pantalla de inicio" para usarla como app.
+
+## Desarrollo local
 
 ```bash
+npm install
+cp .env.example .env.local   # completar con los datos de Supabase
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Con Docker se puede levantar Supabase local con `npx supabase start` (aplica las migraciones de `supabase/migrations`) y usar la URL y la clave que imprime.
