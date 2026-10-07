@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import { saveTransaction, type FormState } from "@/app/(app)/actions";
 import type { Account, Category, Member, Transaction, TxType } from "@/lib/types";
+import { parseAmount } from "@/lib/import";
+import { SplitField } from "@/components/split-field";
 
 type Props = {
   members: Member[];
@@ -27,7 +29,15 @@ export function TransactionForm({ members, categories, accounts, meId, today, tr
     (c) => c.kind === kind && (!c.archived || c.id === tx?.category_id),
   );
   const activeAccounts = accounts.filter((a) => !a.archived || a.id === tx?.account_id);
-  const defaultFor = tx ? (tx.for_member ?? "compartido") : type === "ingreso" ? meId : "compartido";
+  const initialFor = (t: TxType) => (tx && tx.type === t ? (tx.for_member ?? "compartido") : t === "ingreso" ? meId : "compartido");
+  const [forMember, setForMember] = useState(() => initialFor(tx?.type ?? "egreso"));
+  const [amountText, setAmountText] = useState(tx ? String(tx.amount).replace(".", ",") : "");
+  const showSplit = type === "egreso" && forMember === "compartido";
+
+  function changeType(t: TxType) {
+    setType(t);
+    setForMember(initialFor(t));
+  }
 
   return (
     <form action={action} className="space-y-5">
@@ -42,7 +52,7 @@ export function TransactionForm({ members, categories, accounts, meId, today, tr
               name="type"
               value={t.value}
               checked={type === t.value}
-              onChange={() => setType(t.value)}
+              onChange={() => changeType(t.value)}
               className="sr-only"
             />
             {t.label}
@@ -59,7 +69,8 @@ export function TransactionForm({ members, categories, accounts, meId, today, tr
             name="amount"
             inputMode="decimal"
             placeholder="0"
-            defaultValue={tx ? String(tx.amount).replace(".", ",") : ""}
+            value={amountText}
+            onChange={(e) => setAmountText(e.target.value)}
             autoFocus={!tx}
             required
           />
@@ -107,7 +118,7 @@ export function TransactionForm({ members, categories, accounts, meId, today, tr
         </div>
         <div>
           <label className="label" htmlFor="for_member">Para</label>
-          <select key={type} className="input" id="for_member" name="for_member" defaultValue={defaultFor}>
+          <select className="input" id="for_member" name="for_member" value={forMember} onChange={(e) => setForMember(e.target.value)}>
             <option value="compartido">Compartido</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>{m.name}</option>
@@ -128,6 +139,10 @@ export function TransactionForm({ members, categories, accounts, meId, today, tr
           </select>
         </div>
       </div>
+
+      {showSplit && (
+        <SplitField members={members} defaultShares={tx?.shares ?? null} amount={parseAmount(amountText)} />
+      )}
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="pending" defaultChecked={tx?.status === "pendiente"} className="h-4 w-4" />

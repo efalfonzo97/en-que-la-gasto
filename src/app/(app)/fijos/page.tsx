@@ -3,6 +3,7 @@ import { getContext } from "@/lib/data";
 import { currentMonth, formatDay, formatMoney, isMonth, today } from "@/lib/format";
 import { fixedStatus, getFixedExpenses, getMonthTransactions } from "@/lib/queries";
 import { MonthPicker } from "@/components/month-picker";
+import { sharesLabel } from "@/lib/split";
 import { payFixed, unpayFixed } from "../actions";
 
 export default async function FixedPage({ searchParams }: PageProps<"/fijos">) {
@@ -48,7 +49,7 @@ export default async function FixedPage({ searchParams }: PageProps<"/fijos">) {
                   <span className="block text-xs text-muted">
                     {f.due_day ? `Vence el ${f.due_day}` : "Sin vencimiento"} ·{" "}
                     {f.paid_by ? `paga ${member.get(f.paid_by)?.name}` : "paga cualquiera"} ·{" "}
-                    {f.for_member ? `para ${member.get(f.for_member)?.name}` : "compartido"}
+                    {f.for_member ? `para ${member.get(f.for_member)?.name}` : `compartido${f.shares ? ` ${sharesLabel(f.shares, ctx.members)}` : ""}`}
                   </span>
                 </Link>
                 {payment && <span className="text-sm font-semibold text-income">✓ Pagado</span>}

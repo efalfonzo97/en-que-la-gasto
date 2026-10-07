@@ -37,6 +37,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Recuerda la vista elegida (hogar o personal) para las demás pantallas.
+  const view = request.nextUrl.searchParams.get("vista");
+  if (view === "hogar" || view === "yo") {
+    response.cookies.set("vista", view, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+  }
+
   return response;
 }
 

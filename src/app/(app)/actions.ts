@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { getContext } from "@/lib/data";
 import { parseAmount } from "@/lib/import";
 import { today } from "@/lib/format";
+import { parseShares } from "@/lib/split";
+import type { Member, Shares } from "@/lib/types";
 
 export type FormState = { error?: string };
 
@@ -17,18 +19,31 @@ function orNull(value: string) {
   return value === "" || value === "compartido" ? null : value;
 }
 
+/** Reparto del formulario: solo para gastos compartidos. */
+function sharesFrom(formData: FormData, members: Member[], shared: boolean): Shares {
+  return shared ? parseShares(str(formData, "shares"), members) : null;
+}
+
 function refresh() {
   revalidatePath("/", "layout");
 }
 
 export async function saveTransaction(_: FormState, formData: FormData): Promise<FormState> {
-  const { supabase, me } = await getContext();
+  const { supabase, me, members } = await getContext();
   const id = str(formData, "id");
   const amount = parseAmount(str(formData, "amount"));
   if (amount === null || amount === 0) return { error: "Poné un importe válido." };
 
   const type = str(formData, "type");
   if (!["ingreso", "egreso", "transferencia"].includes(type)) return { error: "Tipo inválido." };
+
+  const forMember = orNull(str(formData, "for_member"));
+  let shares: Shares;
+  try {
+    shares = sharesFrom(formData, members, type === "egreso" && !forMember);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 
   const row = {
     household_id: me.household_id,
@@ -40,7 +55,8 @@ export async function saveTransaction(_: FormState, formData: FormData): Promise
     category_id: orNull(str(formData, "category_id")),
     description: str(formData, "description"),
     paid_by: orNull(str(formData, "paid_by")),
-    for_member: orNull(str(formData, "for_member")),
+    for_member: forMember,
+    shares,
     account_id: orNull(str(formData, "account_id")),
     note: str(formData, "note") || null,
   };
@@ -79,6 +95,7 @@ export async function payFixed(formData: FormData) {
     description: fixed.description,
     paid_by: orNull(str(formData, "paid_by")) ?? fixed.paid_by ?? me.id,
     for_member: fixed.for_member,
+    shares: fixed.for_member ? null : (fixed.shares ?? null),
     account_id: fixed.account_id,
     fixed_expense_id: fixed.id,
   });
@@ -92,11 +109,18 @@ export async function unpayFixed(formData: FormData) {
 }
 
 export async function saveFixed(_: FormState, formData: FormData): Promise<FormState> {
-  const { supabase, me } = await getContext();
+  const { supabase, me, members } = await getContext();
   const id = str(formData, "id");
   const description = str(formData, "description");
   if (!description) return { error: "Poné una descripción." };
   const dueDay = Number(str(formData, "due_day"));
+  const forMember = orNull(str(formData, "for_member"));
+  let shares: Shares;
+  try {
+    shares = sharesFrom(formData, members, !forMember);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 
   const row = {
     household_id: me.household_id,
@@ -105,7 +129,8 @@ export async function saveFixed(_: FormState, formData: FormData): Promise<FormS
     due_day: dueDay >= 1 && dueDay <= 31 ? dueDay : null,
     category_id: orNull(str(formData, "category_id")),
     paid_by: orNull(str(formData, "paid_by")),
-    for_member: orNull(str(formData, "for_member")),
+    for_member: forMember,
+    shares,
     account_id: orNull(str(formData, "account_id")),
   };
   const { error } = id

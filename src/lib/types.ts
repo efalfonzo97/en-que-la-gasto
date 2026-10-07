@@ -40,6 +40,7 @@ export type FixedExpense = {
   for_member: string | null;
   account_id: string | null;
   active: boolean;
+  shares: Shares;
 };
 
 export type TxType = "ingreso" | "egreso" | "transferencia";
@@ -58,4 +59,8 @@ export type Transaction = {
   account_id: string | null;
   fixed_expense_id: string | null;
   note: string | null;
+  shares: Shares;
 };
+
+/** Porcentaje de cada miembro en un gasto compartido. null = partes iguales. */
+export type Shares = Record<string, number> | null;

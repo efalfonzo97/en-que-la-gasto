@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { saveFixed, type FormState } from "@/app/(app)/actions";
 import type { Account, Category, FixedExpense, Member } from "@/lib/types";
+import { parseAmount } from "@/lib/import";
+import { SplitField } from "@/components/split-field";
 
 type Props = {
   members: Member[];
@@ -13,6 +15,8 @@ type Props = {
 
 export function FixedForm({ members, categories, accounts, fixed }: Props) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveFixed, {});
+  const [forMember, setForMember] = useState(fixed?.for_member ?? "compartido");
+  const [amountText, setAmountText] = useState(fixed ? String(fixed.amount).replace(".", ",") : "");
   return (
     <form action={action} className="space-y-4">
       {fixed && <input type="hidden" name="id" value={fixed.id} />}
@@ -28,7 +32,8 @@ export function FixedForm({ members, categories, accounts, fixed }: Props) {
             id="amount"
             name="amount"
             inputMode="decimal"
-            defaultValue={fixed ? String(fixed.amount).replace(".", ",") : ""}
+            value={amountText}
+            onChange={(e) => setAmountText(e.target.value)}
           />
         </div>
         <div>
@@ -57,7 +62,7 @@ export function FixedForm({ members, categories, accounts, fixed }: Props) {
         </div>
         <div>
           <label className="label" htmlFor="for_member">Para</label>
-          <select className="input" id="for_member" name="for_member" defaultValue={fixed?.for_member ?? "compartido"}>
+          <select className="input" id="for_member" name="for_member" value={forMember} onChange={(e) => setForMember(e.target.value)}>
             <option value="compartido">Compartido</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>{m.name}</option>
@@ -76,6 +81,9 @@ export function FixedForm({ members, categories, accounts, fixed }: Props) {
           </select>
         </div>
       </div>
+      {forMember === "compartido" && (
+        <SplitField members={members} defaultShares={fixed?.shares ?? null} amount={parseAmount(amountText)} />
+      )}
       {state.error && <p className="text-sm text-danger">{state.error}</p>}
       <button className="btn w-full" disabled={pending}>Guardar</button>
     </form>
