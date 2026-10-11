@@ -1,0 +1,140 @@
+/*
+  Fondo animado de "En qué la gasto".
+  Toma los colores del tema (--accent, --income, --background) definidos en
+  globals.css, así que se adapta solo a modo claro y oscuro.
+  Todo es CSS: transform + opacity, que el navegador anima en la GPU.
+*/
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--background);
+  --blob-opacity: 0.35;
+  --coin-opacity: 0.22;
+  --grid-opacity: 0.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .root {
+    --blob-opacity: 0.22;
+    --coin-opacity: 0.18;
+    --grid-opacity: 0.35;
+  }
+}
+
+/* ---------- Manchas de color que flotan ---------- */
+
+.blob {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: var(--blob-opacity);
+  will-change: transform;
+}
+
+.blobA {
+  top: -30vmax;
+  left: -25vmax;
+  background: radial-gradient(circle at center, var(--accent), transparent 65%);
+  animation: driftA 26s ease-in-out infinite alternate;
+}
+
+.blobB {
+  bottom: -35vmax;
+  right: -30vmax;
+  background: radial-gradient(circle at center, var(--income), transparent 65%);
+  animation: driftB 32s ease-in-out infinite alternate;
+}
+
+.blobC {
+  top: 30%;
+  left: 40%;
+  width: 45vmax;
+  height: 45vmax;
+  background: radial-gradient(circle at center, #f5b544, transparent 65%);
+  opacity: calc(var(--blob-opacity) * 0.55);
+  animation: driftC 38s ease-in-out infinite alternate;
+}
+
+@keyframes driftA {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(18vw, 12vh) scale(1.12); }
+  100% { transform: translate(6vw, 28vh) scale(0.95); }
+}
+
+@keyframes driftB {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(-16vw, -14vh) scale(1.08); }
+  100% { transform: translate(-28vw, -4vh) scale(1.15); }
+}
+
+@keyframes driftC {
+  0%   { transform: translate(-50%, -50%) scale(0.9); }
+  50%  { transform: translate(-30%, -70%) scale(1.1); }
+  100% { transform: translate(-70%, -40%) scale(1); }
+}
+
+/* ---------- Grilla sutil, como papel cuadriculado de cuaderno de cuentas ---------- */
+
+.grid {
+  position: absolute;
+  inset: 0;
+  opacity: var(--grid-opacity);
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 35%, black 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 35%, black 20%, transparent 75%);
+}
+
+/* ---------- Monedas que suben despacio ---------- */
+
+.coin {
+  position: absolute;
+  bottom: -40px;
+  left: var(--x);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  opacity: 0;
+  animation: rise var(--dur) linear var(--delay) infinite;
+  will-change: transform, opacity;
+}
+
+/* el "$" adentro de la moneda */
+.coin::after {
+  content: "$";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 600 calc(var(--size) * 0.55) / 1 var(--font-geist-sans), system-ui, sans-serif;
+  color: var(--accent);
+}
+
+@keyframes rise {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  10%  { opacity: var(--coin-opacity); }
+  50%  { transform: translate(var(--sway), -55vh) rotate(180deg); }
+  85%  { opacity: var(--coin-opacity); }
+  100% { transform: translate(0, -110vh) rotate(360deg); opacity: 0; }
+}
+
+/* ---------- Accesibilidad: si el sistema pide menos movimiento, queda quieto ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .blob,
+  .coin {
+    animation: none;
+  }
+  .coin {
+    display: none;
+  }
+}
