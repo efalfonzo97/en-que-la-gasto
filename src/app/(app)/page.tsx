@@ -45,7 +45,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold">Hola, {ctx.me.name} 👋</h1>
+          <h1 className="truncate text-2xl font-bold">{ctx.me.name}</h1>
           <p className="text-sm text-muted">{personal ? "Viendo solo lo tuyo" : `Viendo todo ${ctx.household.name}`}</p>
         </div>
         <ViewToggle view={view} path="/" query={{ mes: params.mes ? month : null }} variant="iconos" />
