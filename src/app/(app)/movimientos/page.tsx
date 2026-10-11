@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { getContext } from "@/lib/data";
-import { PERIODS, addDays, formatDay, formatMoney, resolveRange } from "@/lib/format";
-import { getRangeTransactions } from "@/lib/queries";
+import { PERIODS, addDays, formatDay, formatMoney, monthLabel, resolveRange } from "@/lib/format";
+import { getFixedExpenses, getMonthTransactions, getRangeTransactions } from "@/lib/queries";
 import { categoryBreakdown } from "@/lib/summary";
 import { getView, isMine, withQuery } from "@/lib/view";
 import { sharesLabel } from "@/lib/split";
 import { CHART_COLORS, Donut } from "@/components/donut";
 import { ViewToggle } from "@/components/view-toggle";
+import { FixedList, fixedPendingInfo } from "@/components/fixed-list";
 
 type Tab = "gastos" | "ingresos" | "todos";
 
@@ -18,7 +19,15 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
   const categoryFilter = typeof params.cat === "string" ? params.cat : "";
 
   const ctx = await getContext();
-  const all = await getRangeTransactions(ctx, range.start, range.end);
+  // Los fijos se muestran del mes del período elegido.
+  const fixedMonth = range.start.slice(0, 7);
+  const [all, fixed, fixedMonthTx] = await Promise.all([
+    getRangeTransactions(ctx, range.start, range.end),
+    getFixedExpenses(ctx),
+    getMonthTransactions(ctx, fixedMonth),
+  ]);
+  const fixedInfo = fixedPendingInfo(fixed, fixedMonthTx);
+  const showFixed = params.fijos === "1";
   const visible = view === "yo" ? all.filter((t) => isMine(t, ctx.me.id)) : all;
 
   const expenses = categoryBreakdown(visible, ctx.categories, "egreso");
@@ -161,39 +170,72 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
         </Link>
       )}
 
-      {transactions.length === 0 && <p className="card text-center text-muted">No hay movimientos.</p>}
+      <details className="card group" open={Boolean(categoryFilter)}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+          <span className="font-semibold">Listado</span>
+          <span className="flex items-center gap-2 text-sm">
+            <span className="text-muted">{transactions.length} {transactions.length === 1 ? "movimiento" : "movimientos"}</span>
+            <span className="text-accent group-open:hidden">Mostrar</span>
+            <span className="hidden text-accent group-open:inline">Ocultar</span>
+          </span>
+        </summary>
+        <div className="mt-3 space-y-4">
+          {transactions.length === 0 && <p className="text-center text-sm text-muted">No hay movimientos.</p>}
 
-      {[...byDate.entries()].map(([date, items]) => (
-        <section key={date} className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted">{formatDay(date)}</h2>
-          <ul className="card divide-y divide-border p-0">
-            {items.map((t) => {
-              const c = t.category_id ? category.get(t.category_id) : undefined;
-              const sign = t.type === "ingreso" ? "+" : t.type === "egreso" ? "−" : "";
-              const split = t.type === "egreso" && !t.for_member ? sharesLabel(t.shares, ctx.members) : "";
-              return (
-                <li key={t.id}>
-                  <Link href={`/movimientos/${t.id}`} className="flex items-center gap-3 px-4 py-3">
-                    <span className="text-2xl" aria-hidden>{c?.emoji ?? (t.type === "transferencia" ? "🔁" : "📦")}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{t.description || c?.name || "Sin descripción"}</span>
-                      <span className="block text-xs text-muted">
-                        {t.paid_by ? member.get(t.paid_by)?.name : "—"} ·{" "}
-                        {t.for_member ? `para ${member.get(t.for_member)?.name}` : `compartido${split ? ` ${split}` : ""}`}
-                        {t.status === "pendiente" && " · pendiente"}
-                      </span>
-                    </span>
-                    <span className={`font-semibold tabular-nums ${t.type === "ingreso" ? "text-income" : ""}`}>
-                      {sign}
-                      {formatMoney(t.amount, t.currency)}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+          {[...byDate.entries()].map(([date, items]) => (
+            <section key={date} className="space-y-2">
+              <h2 className="text-sm font-semibold text-muted">{formatDay(date)}</h2>
+              <ul className="divide-y divide-border rounded-xl border border-border">
+                {items.map((t) => {
+                  const c = t.category_id ? category.get(t.category_id) : undefined;
+                  const sign = t.type === "ingreso" ? "+" : t.type === "egreso" ? "−" : "";
+                  const split = t.type === "egreso" && !t.for_member ? sharesLabel(t.shares, ctx.members) : "";
+                  return (
+                    <li key={t.id}>
+                      <Link href={`/movimientos/${t.id}`} className="flex items-center gap-3 px-4 py-3">
+                        <span className="text-2xl" aria-hidden>{t.project_id ? "🎯" : (c?.emoji ?? (t.type === "transferencia" ? "🐷" : "📦"))}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{t.description || c?.name || "Sin descripción"}</span>
+                          <span className="block text-xs text-muted">
+                            {t.paid_by ? member.get(t.paid_by)?.name : "—"} ·{" "}
+                            {t.for_member ? `para ${member.get(t.for_member)?.name}` : `compartido${split ? ` ${split}` : ""}`}
+                            {t.status === "pendiente" && " · pendiente"}
+                          </span>
+                        </span>
+                        <span className={`font-semibold tabular-nums ${t.type === "ingreso" ? "text-income" : ""}`}>
+                          {sign}
+                          {formatMoney(t.amount, t.currency)}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </details>
+
+      <details id="fijos" className="card group scroll-mt-4" open={showFixed}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+          <span className="font-semibold">Fijos de {monthLabel(fixedMonth)}</span>
+          <span className="flex items-center gap-2 text-sm">
+            <span className="tabular-nums text-muted">
+              {fixedInfo.count === 0
+                ? "Sin fijos"
+                : fixedInfo.pending === 0
+                  ? "Todo pagado 🎉"
+                  : `Faltan ${fixedInfo.pending} · ${formatMoney(fixedInfo.total)}`}
+            </span>
+            <span className="text-accent group-open:hidden">Mostrar</span>
+            <span className="hidden text-accent group-open:inline">Ocultar</span>
+          </span>
+        </summary>
+        <div className="mt-3 space-y-3">
+          <Link href="/fijos/nuevo" className="btn-ghost w-full py-2 text-sm">+ Agregar fijo</Link>
+          <FixedList ctx={ctx} month={fixedMonth} fixed={fixed} transactions={fixedMonthTx} />
+        </div>
+      </details>
     </div>
   );
 }

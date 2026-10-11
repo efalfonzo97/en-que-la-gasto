@@ -57,8 +57,8 @@ export function monthSummary(
   const essential = byCategory.filter((r) => r.category.essential).reduce((s, r) => s + r.total, 0);
 
   const upcoming = [
-    ...pendingFixed.map((r) => ({ id: r.fixed.id, description: r.fixed.description, amount: r.fixed.amount, day: r.fixed.due_day, href: "/fijos" })),
-    ...pendingTx.map((t) => ({ id: t.id, description: t.description, amount: t.amount, day: Number(t.date.slice(8)), href: `/movimientos/${t.id}` })),
+    ...pendingFixed.map((r) => ({ id: r.fixed.id, kind: "fijo" as const, description: r.fixed.description, amount: r.fixed.amount, day: r.fixed.due_day, href: "/movimientos?fijos=1#fijos" })),
+    ...pendingTx.map((t) => ({ id: t.id, kind: "movimiento" as const, description: t.description, amount: t.amount, day: Number(t.date.slice(8)), href: `/movimientos/${t.id}` })),
   ].sort((a, b) => (a.day ?? 99) - (b.day ?? 99));
 
   return {

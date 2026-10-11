@@ -7,7 +7,7 @@ const ITEMS = [
   { href: "/", label: "Inicio", icon: "🏠" },
   { href: "/movimientos", label: "Movimientos", icon: "📋" },
   { href: "/cargar", label: "Cargar", icon: "➕", primary: true },
-  { href: "/fijos", label: "Fijos", icon: "📅" },
+  { href: "/proyectos", label: "Proyectos", icon: "🎯" },
   { href: "/config", label: "Ajustes", icon: "⚙️" },
 ];
 
@@ -17,7 +17,10 @@ export function BottomNav() {
     <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       <ul className="mx-auto grid max-w-lg grid-cols-5">
         {ITEMS.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const active =
+            item.href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(item.href) || (item.href === "/movimientos" && pathname.startsWith("/fijos"));
           return (
             <li key={item.href}>
               <Link

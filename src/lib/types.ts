@@ -60,6 +60,21 @@ export type Transaction = {
   fixed_expense_id: string | null;
   note: string | null;
   shares: Shares;
+  project_id: string | null;
+  /** Lo que suma al proyecto en su moneda. null = el mismo importe. */
+  project_amount: number | null;
+};
+
+export type Project = {
+  id: string;
+  title: string;
+  description: string;
+  target_amount: number;
+  currency: "ARS" | "USD";
+  /** null = compartido */
+  for_member: string | null;
+  archived: boolean;
+  created_at: string;
 };
 
 /** Porcentaje de cada miembro en un gasto compartido. null = partes iguales. */

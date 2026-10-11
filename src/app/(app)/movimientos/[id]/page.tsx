@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext } from "@/lib/data";
 import { formatMoney, today } from "@/lib/format";
-import { getTransaction } from "@/lib/queries";
+import { getProject, getTransaction } from "@/lib/queries";
 import { formatPct, splitAmounts } from "@/lib/split";
 import { TransactionForm } from "@/components/transaction-form";
 import { deleteTransaction } from "../../actions";
@@ -15,10 +16,18 @@ export default async function EditTransactionPage({ params }: PageProps<"/movimi
   const shared = tx.type === "egreso" && !tx.for_member && ctx.members.length > 1;
   const parts = shared ? splitAmounts(tx, ctx.members) : [];
   const payer = ctx.members.find((m) => m.id === tx.paid_by);
+  const project = tx.project_id ? await getProject(ctx, tx.project_id) : null;
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Editar movimiento</h1>
+
+      {project && (
+        <Link href={`/proyectos/${project.id}`} className="block rounded-xl bg-accent-soft px-3 py-2 text-sm">
+          🎯 Aporte al proyecto <span className="font-semibold">{project.title}</span>
+          {tx.project_amount != null && ` (suma ${formatMoney(tx.project_amount, project.currency)})`} ›
+        </Link>
+      )}
 
       {shared && (
         <section className="card space-y-2">

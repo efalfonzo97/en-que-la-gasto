@@ -138,14 +138,14 @@ export async function saveFixed(_: FormState, formData: FormData): Promise<FormS
     : await supabase.from("fixed_expenses").insert(row);
   if (error) return { error: error.message };
   refresh();
-  redirect("/fijos");
+  redirect("/movimientos?fijos=1#fijos");
 }
 
 export async function deactivateFixed(formData: FormData) {
   const { supabase } = await getContext();
   await supabase.from("fixed_expenses").update({ active: false }).eq("id", str(formData, "id"));
   refresh();
-  redirect("/fijos");
+  redirect("/movimientos?fijos=1#fijos");
 }
 
 // --- Ajustes ---

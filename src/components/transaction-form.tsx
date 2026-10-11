@@ -18,7 +18,7 @@ type Props = {
 const TYPES: { value: TxType; label: string }[] = [
   { value: "egreso", label: "Gasto" },
   { value: "ingreso", label: "Ingreso" },
-  { value: "transferencia", label: "Ahorro / transferencia" },
+  { value: "transferencia", label: "Ahorro" },
 ];
 
 export function TransactionForm({ members, categories, accounts, meId, today, transaction: tx }: Props) {
