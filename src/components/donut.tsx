@@ -14,7 +14,7 @@ type Props = {
   center?: string;
   /** Texto chico debajo del centro. */
   caption?: string;
-  size?: "md" | "sm";
+  size?: "lg" | "md" | "sm";
 };
 
 /** Gráfico de torta con el total en el centro. */
@@ -29,7 +29,7 @@ export function Donut({ slices, total, center, caption, size = "md" }: Props) {
   return (
     <svg
       viewBox="0 0 200 200"
-      className={`mx-auto block ${size === "sm" ? "h-36 w-36" : "h-52 w-52"}`}
+      className={`mx-auto block ${size === "sm" ? "h-36 w-36" : size === "lg" ? "h-60 w-60" : "h-52 w-52"}`}
       role="img"
       aria-label={caption ? `${caption} ${centerText}` : centerText}
     >

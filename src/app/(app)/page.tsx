@@ -89,7 +89,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
 
         <div className="flex flex-col items-center gap-4 sm:grid sm:grid-cols-[auto_minmax(0,1fr)]">
           <Donut
-            size="sm"
+            size="lg"
             slices={flow.map((f) => ({ id: f.id, total: f.total, color: f.color }))}
             total={flowTotal}
             center={formatCompact(s.income)}
