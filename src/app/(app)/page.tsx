@@ -1,23 +1,36 @@
 import Link from "next/link";
 import { getContext } from "@/lib/data";
 import { currentMonth, formatCompact, formatMoney, isMonth } from "@/lib/format";
-import { fixedStatus, getFixedExpenses, getMonthTransactions } from "@/lib/queries";
+import { fixedStatus, getContributions, getFixedExpenses, getMonthTransactions, getProjects } from "@/lib/queries";
+import { projectProgress } from "@/lib/projects";
 import { monthSummary } from "@/lib/summary";
 import { getView, withQuery } from "@/lib/view";
 import { MonthPicker } from "@/components/month-picker";
 import { ViewToggle } from "@/components/view-toggle";
 import { Donut } from "@/components/donut";
+import { Gauge } from "@/components/gauge";
 
 const FLOW_COLORS = { gastos: "#f2444f", pendientes: "#f5a524", ahorros: "#3b82f6", disponible: "#2ea89a" };
 const MEMBER_COLORS = ["#2ea89a", "#8b5cf6", "#f5a524"];
+const PROJECT_COLORS = ["#3b82f6", "#8b5cf6", "#2ea89a", "#f5a524"];
+const MAX_HOME_PROJECTS = 4;
 
 export default async function HomePage({ searchParams }: PageProps<"/">) {
   const params = await searchParams;
   const month = isMonth(params.mes) ? params.mes : currentMonth();
   const view = await getView(params.vista);
   const ctx = await getContext();
-  const [transactions, fixed] = await Promise.all([getMonthTransactions(ctx, month), getFixedExpenses(ctx)]);
+  const [transactions, fixed, allProjects] = await Promise.all([
+    getMonthTransactions(ctx, month),
+    getFixedExpenses(ctx),
+    getProjects(ctx),
+  ]);
   const personal = view === "yo";
+
+  // Proyectos activos (en "solo lo mío", los compartidos y los propios).
+  const projects = allProjects.filter((p) => !p.archived && (!personal || !p.for_member || p.for_member === ctx.me.id));
+  const contributions = projects.length ? await getContributions(ctx, projects.map((p) => p.id)) : [];
+  const projectRows = projects.map((p) => ({ project: p, progress: projectProgress(p, contributions, ctx.members) }));
   const s = monthSummary(transactions, fixedStatus(fixed, transactions), ctx.members, ctx.categories, personal ? ctx.me.id : null);
   const mine = s.perMember.find((p) => p.member.id === ctx.me.id);
 
@@ -132,6 +145,42 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           )}
         </section>
       )}
+
+      <section className="card space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold">Proyectos</h2>
+          <Link href="/proyectos" className="btn-ghost shrink-0 px-3 py-1.5 text-sm">
+            Proyectos ›
+          </Link>
+        </div>
+        {projectRows.length === 0 ? (
+          <p className="text-sm text-muted">
+            Todavía no hay proyectos.{" "}
+            <Link href="/proyectos/nuevo" className="text-accent">Crear uno</Link>
+          </p>
+        ) : (
+          <>
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-4">
+              {projectRows.slice(0, MAX_HOME_PROJECTS).map(({ project: p, progress }, i) => (
+                <li key={p.id} className="min-w-0">
+                  <Link href={`/proyectos/${p.id}`} className="block">
+                    <Gauge
+                      size="xs"
+                      pct={progress.pct}
+                      color={PROJECT_COLORS[i % PROJECT_COLORS.length]}
+                      label={p.title}
+                      detail={`${formatMoney(progress.total, p.currency)} de ${formatMoney(p.target_amount, p.currency)}`}
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {projectRows.length > MAX_HOME_PROJECTS && (
+              <p className="text-xs text-muted">Y {projectRows.length - MAX_HOME_PROJECTS} más en la sección Proyectos.</p>
+            )}
+          </>
+        )}
+      </section>
 
       <details className="card group">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">

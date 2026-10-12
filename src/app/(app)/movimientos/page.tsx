@@ -8,8 +8,16 @@ import { sharesLabel } from "@/lib/split";
 import { CHART_COLORS, Donut } from "@/components/donut";
 import { ViewToggle } from "@/components/view-toggle";
 import { FixedList, fixedPendingInfo } from "@/components/fixed-list";
+import { Gauge } from "@/components/gauge";
 
 type Tab = "gastos" | "ingresos" | "todos";
+type Status = "todos" | "pagado" | "pendiente";
+
+const STATUS_FILTERS: { value: Status; label: string }[] = [
+  { value: "todos", label: "Todos" },
+  { value: "pagado", label: "Abonados" },
+  { value: "pendiente", label: "Pendientes" },
+];
 
 export default async function TransactionsPage({ searchParams }: PageProps<"/movimientos">) {
   const params = await searchParams;
@@ -17,6 +25,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
   const view = await getView(params.vista);
   const tab: Tab = params.t === "ingresos" || params.t === "todos" ? params.t : "gastos";
   const categoryFilter = typeof params.cat === "string" ? params.cat : "";
+  const status: Status = params.estado === "pagado" || params.estado === "pendiente" ? params.estado : "todos";
 
   const ctx = await getContext();
   // Los fijos se muestran del mes del período elegido.
@@ -34,12 +43,23 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
   const incomes = categoryBreakdown(visible, ctx.categories, "ingreso");
   const chart = tab === "ingresos" ? incomes : expenses;
 
+  // Cuánto de lo que entró se gastó, y cuánto quedó como oportunidad de ahorro.
+  const spentPct = incomes.total > 0 ? (expenses.total / incomes.total) * 100 : null;
+  const leftover = incomes.total - expenses.total;
+  const savingPct = incomes.total > 0 ? Math.max((leftover / incomes.total) * 100, 0) : null;
+
   const typeFilter = tab === "gastos" ? "egreso" : tab === "ingresos" ? "ingreso" : null;
-  const transactions = visible.filter(
+  const byTypeAndCategory = visible.filter(
     (t) =>
       (!typeFilter || t.type === typeFilter) &&
       (!categoryFilter || (categoryFilter === "sin" ? !t.category_id : t.category_id === categoryFilter)),
   );
+  const statusCount = {
+    todos: byTypeAndCategory.length,
+    pagado: byTypeAndCategory.filter((t) => t.status === "pagado").length,
+    pendiente: byTypeAndCategory.filter((t) => t.status === "pendiente").length,
+  };
+  const transactions = status === "todos" ? byTypeAndCategory : byTypeAndCategory.filter((t) => t.status === status);
   const category = new Map(ctx.categories.map((c) => [c.id, c]));
   const member = new Map(ctx.members.map((m) => [m.id, m]));
   const byDate = new Map<string, typeof transactions>();
@@ -53,6 +73,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
     hasta: range.period === "periodo" ? addDays(range.end, -1) : null,
     t: tab === "gastos" ? null : tab,
     cat: categoryFilter || null,
+    estado: status === "todos" ? null : status,
   };
   const link = (changes: Record<string, string | null>) => withQuery("/movimientos", { ...base, ...changes });
   const filteredCategory = categoryFilter ? chart.rows.find((r) => r.id === categoryFilter) ?? expenses.rows.concat(incomes.rows).find((r) => r.id === categoryFilter) : null;
@@ -66,7 +87,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
           {PERIODS.map((p) => (
             <Link
               key={p.value}
-              href={withQuery("/movimientos", { p: p.value, t: base.t, cat: base.cat })}
+              href={withQuery("/movimientos", { p: p.value, t: base.t, cat: base.cat, estado: base.estado })}
               aria-current={range.period === p.value ? "true" : undefined}
               className={`rounded-lg py-1.5 text-center ${range.period === p.value ? "bg-accent-soft font-semibold text-accent" : "text-muted"}`}
             >
@@ -79,6 +100,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
           <form className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
             <input type="hidden" name="p" value="periodo" />
             {base.t && <input type="hidden" name="t" value={base.t} />}
+            {base.estado && <input type="hidden" name="estado" value={base.estado} />}
             <div>
               <label className="label" htmlFor="desde">Desde</label>
               <input className="input py-2" type="date" id="desde" name="desde" defaultValue={range.start} />
@@ -136,7 +158,29 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
           </dl>
         ) : (
           <>
-            <Donut slices={chart.rows} total={chart.total} />
+            {tab === "gastos" ? (
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
+                <Donut slices={chart.rows} total={chart.total} size="sm" caption="gastos" />
+                <div className="min-w-0 space-y-3">
+                  <Gauge
+                    size="xs"
+                    pct={spentPct}
+                    color={spentPct !== null && spentPct > 100 ? "var(--danger)" : "#f2444f"}
+                    label="Del sueldo gastado"
+                    detail={incomes.total > 0 ? `de ${formatMoney(incomes.total)}` : "Sin ingresos cargados"}
+                  />
+                  <Gauge
+                    size="xs"
+                    pct={savingPct}
+                    color="#2ea89a"
+                    label="Oportunidad de ahorro"
+                    detail={incomes.total > 0 ? (leftover > 0 ? `sobran ${formatMoney(leftover)}` : "no sobró nada") : undefined}
+                  />
+                </div>
+              </div>
+            ) : (
+              <Donut slices={chart.rows} total={chart.total} />
+            )}
             {chart.rows.length === 0 ? (
               <p className="text-center text-sm text-muted">No hay {tab} en este período.</p>
             ) : (
@@ -170,7 +214,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
         </Link>
       )}
 
-      <details className="card group" open={Boolean(categoryFilter)}>
+      <details className="card group" open={Boolean(categoryFilter) || status !== "todos"}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
           <span className="font-semibold">Listado</span>
           <span className="flex items-center gap-2 text-sm">
@@ -180,7 +224,23 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
           </span>
         </summary>
         <div className="mt-3 space-y-4">
-          {transactions.length === 0 && <p className="text-center text-sm text-muted">No hay movimientos.</p>}
+          <div className="grid grid-cols-3 gap-1 text-sm" role="group" aria-label="Estado">
+            {STATUS_FILTERS.map((f) => (
+              <Link
+                key={f.value}
+                href={link({ estado: f.value === "todos" ? null : f.value })}
+                aria-current={status === f.value ? "true" : undefined}
+                className={`rounded-lg border px-2 py-1.5 text-center ${status === f.value ? "border-accent bg-accent-soft font-semibold" : "border-border text-muted"}`}
+              >
+                {f.label} <span className="text-xs tabular-nums">({statusCount[f.value]})</span>
+              </Link>
+            ))}
+          </div>
+          {transactions.length === 0 && (
+            <p className="text-center text-sm text-muted">
+              {status === "pendiente" ? "No hay movimientos pendientes." : status === "pagado" ? "No hay movimientos abonados." : "No hay movimientos."}
+            </p>
+          )}
 
           {[...byDate.entries()].map(([date, items]) => (
             <section key={date} className="space-y-2">
