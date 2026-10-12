@@ -1,11 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+// Fuente incluida en el proyecto: no depende de Google Fonts al compilar.
+const geistSans = GeistSans;
 
 export const metadata: Metadata = {
   title: "En qué la gasto",
