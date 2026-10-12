@@ -52,23 +52,23 @@ export function FixedList({ ctx, month, fixed, transactions }: Props) {
                   <button className="underline">Deshacer</button>
                 </form>
               ) : (
-                <form action={payFixed} className="flex gap-2">
+                <form action={payFixed} className="grid grid-cols-2 gap-2">
                   <input type="hidden" name="fixed_id" value={f.id} />
                   <input type="hidden" name="date" value={payDate} />
                   <input
-                    className="input flex-1 py-2"
+                    className="input min-w-0 py-2"
                     name="amount"
                     inputMode="decimal"
                     aria-label={`Importe pagado de ${f.description}`}
                     defaultValue={f.amount ? String(f.amount).replace(".", ",") : ""}
                     placeholder="Importe"
                   />
-                  <select name="paid_by" className="input w-28 py-2" defaultValue={f.paid_by ?? ctx.me.id} aria-label="Quién pagó">
+                  <select name="paid_by" className="input min-w-0 py-2" defaultValue={f.paid_by ?? ctx.me.id} aria-label="Quién pagó">
                     {ctx.members.map((m) => (
                       <option key={m.id} value={m.id}>{m.name}</option>
                     ))}
                   </select>
-                  <button className="btn py-2">Pagado</button>
+                  <button className="btn col-span-2 py-2">Marcar como pagado</button>
                 </form>
               )}
             </li>

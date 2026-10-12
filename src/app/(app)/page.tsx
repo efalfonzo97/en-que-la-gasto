@@ -68,7 +68,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
 
       <section className="card space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-sm text-muted">Total disponible</p>
             <p className={`text-3xl font-bold tabular-nums ${s.available < 0 ? "text-danger" : ""}`}>
               {formatMoney(s.available)}
@@ -87,7 +87,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           </Link>
         </div>
 
-        <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+        <div className="flex flex-col items-center gap-4 sm:grid sm:grid-cols-[auto_minmax(0,1fr)]">
           <Donut
             size="sm"
             slices={flow.map((f) => ({ id: f.id, total: f.total, color: f.color }))}
@@ -95,7 +95,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             center={formatCompact(s.income)}
             caption="ingresos"
           />
-          <ul className="space-y-1.5 text-sm">
+          <ul className="w-full min-w-0 space-y-1.5 text-sm">
             <li className="flex items-center justify-between gap-2">
               <span className="font-medium">Ingresos</span>
               <span className="font-semibold tabular-nums text-income">{formatMoney(s.income)}</span>
@@ -119,14 +119,14 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             <p className="text-sm text-muted">Todavía no hay gastos compartidos este mes.</p>
           ) : (
             <>
-              <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+              <div className="flex flex-col items-center gap-4 sm:grid sm:grid-cols-[auto_minmax(0,1fr)]">
                 <Donut
                   size="sm"
                   slices={sharedRows.map((r) => ({ id: r.member.id, total: r.contributed, color: r.color }))}
                   total={s.sharedTotal}
                   caption="compartido"
                 />
-                <ul className="space-y-2 text-sm">
+                <ul className="w-full min-w-0 space-y-2 text-sm">
                   {sharedRows.map((r) => (
                     <li key={r.member.id} className="space-y-0.5">
                       <div className="flex items-center gap-2">

@@ -16,7 +16,7 @@ export function Gauge({ pct, color, label, detail, size = "sm" }: Props) {
   const text = pct === null ? "—" : `${Math.round(pct)}%`;
 
   return (
-    <figure className="flex items-center gap-3">
+    <figure className="flex min-w-0 items-center gap-3">
       <svg
         viewBox="0 0 100 100"
         className={`shrink-0 ${size === "xs" ? "h-16 w-16" : "h-20 w-20"}`}
@@ -42,7 +42,7 @@ export function Gauge({ pct, color, label, detail, size = "sm" }: Props) {
         </text>
       </svg>
       <figcaption className="min-w-0 text-sm">
-        <span className="block font-medium leading-tight">{label}</span>
+        <span className="block break-words font-medium leading-tight">{label}</span>
         {detail && <span className="block text-xs text-muted tabular-nums">{detail}</span>}
       </figcaption>
     </figure>

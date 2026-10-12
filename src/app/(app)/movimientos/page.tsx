@@ -97,7 +97,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
         </nav>
 
         {range.period === "periodo" ? (
-          <form className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+          <form className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2">
             <input type="hidden" name="p" value="periodo" />
             {base.t && <input type="hidden" name="t" value={base.t} />}
             {base.estado && <input type="hidden" name="estado" value={base.estado} />}
@@ -232,7 +232,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
                 aria-current={status === f.value ? "true" : undefined}
                 className={`rounded-lg border px-2 py-1.5 text-center ${status === f.value ? "border-accent bg-accent-soft font-semibold" : "border-border text-muted"}`}
               >
-                {f.label} <span className="text-xs tabular-nums">({statusCount[f.value]})</span>
+                <span className="block">{f.label}</span>
+                <span className="block text-xs tabular-nums">{statusCount[f.value]}</span>
               </Link>
             ))}
           </div>
@@ -278,8 +279,11 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
 
       <details id="fijos" className="card group scroll-mt-4" open={showFixed}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-          <span className="font-semibold">Fijos de {monthLabel(fixedMonth)}</span>
-          <span className="flex items-center gap-2 text-sm">
+          <span className="min-w-0">
+            <span className="block font-semibold">Fijos</span>
+            <span className="block text-xs text-muted">{monthLabel(fixedMonth)}</span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2 text-sm">
             <span className="tabular-nums text-muted">
               {fixedInfo.count === 0
                 ? "Sin fijos"
