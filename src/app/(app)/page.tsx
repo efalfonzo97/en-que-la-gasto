@@ -39,7 +39,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
     { id: "gastos", label: "Gastos", total: s.spent, color: FLOW_COLORS.gastos },
     { id: "pendientes", label: "Pendientes", total: s.pending, color: FLOW_COLORS.pendientes },
     { id: "ahorros", label: "Ahorros", total: s.saved, color: FLOW_COLORS.ahorros },
-    { id: "disponible", label: "Disponible", total: Math.max(s.available, 0), color: FLOW_COLORS.disponible },
+    { id: "disponible", label: "Libre tras pendientes", total: Math.max(s.afterPending, 0), color: FLOW_COLORS.disponible },
   ];
   const fixedHref = withQuery("/movimientos", { mes: month, fijos: "1" }) + "#fijos";
   const flowTotal = flow.reduce((sum, f) => sum + f.total, 0);
@@ -73,6 +73,14 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             <p className={`text-3xl font-bold tabular-nums ${s.available < 0 ? "text-danger" : ""}`}>
               {formatMoney(s.available)}
             </p>
+            {s.pending > 0 && (
+              <p className="text-sm text-muted">
+                Después de pagar los pendientes:{" "}
+                <span className={`font-semibold tabular-nums ${s.afterPending < 0 ? "text-danger" : "text-foreground"}`}>
+                  {formatMoney(s.afterPending)}
+                </span>
+              </p>
+            )}
           </div>
           <Link href={withQuery("/movimientos", { mes: month })} className="btn-ghost shrink-0 px-3 py-1.5 text-sm">
             Movimientos ›

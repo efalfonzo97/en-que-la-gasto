@@ -43,12 +43,38 @@ export async function getFixedExpenses(ctx: AppContext) {
   return ((data ?? []) as FixedExpense[]).map((f) => ({ ...f, amount: Number(f.amount) }));
 }
 
-/** Estado de cada fijo en el mes: el movimiento que lo pagó, si existe. */
+/** Texto comparable: sin mayúsculas, acentos ni espacios de más. */
+function normalizeText(text: string) {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Estado de cada fijo en el mes: el movimiento que lo pagó, si existe.
+ * Primero busca los pagados con el botón "Pagado" (vinculados al fijo). Si no hay,
+ * toma un gasto del mes con la misma descripción, para que un fijo cargado desde
+ * "Cargar" no quede también como pendiente. Cada movimiento cubre un solo fijo.
+ */
 export function fixedStatus(fixed: FixedExpense[], transactions: Transaction[]) {
-  return fixed.map((f) => ({
-    fixed: f,
-    payment: transactions.find((t) => t.fixed_expense_id === f.id) ?? null,
-  }));
+  const used = new Set<string>();
+  const linked = fixed.map((f) => {
+    const payment = transactions.find((t) => t.fixed_expense_id === f.id) ?? null;
+    if (payment) used.add(payment.id);
+    return { fixed: f, payment };
+  });
+  return linked.map((row) => {
+    if (row.payment) return row;
+    const name = normalizeText(row.fixed.description);
+    const match = transactions.find(
+      (t) =>
+        !used.has(t.id) &&
+        !t.fixed_expense_id &&
+        t.type === "egreso" &&
+        t.status === "pagado" &&
+        normalizeText(t.description) === name,
+    );
+    if (match) used.add(match.id);
+    return { fixed: row.fixed, payment: match ?? null };
+  });
 }
 
 const PROJECT_FIELDS = "id, title, description, target_amount, currency, for_member, archived, created_at";

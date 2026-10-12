@@ -59,6 +59,12 @@ export async function saveTransaction(_: FormState, formData: FormData): Promise
     shares,
     account_id: orNull(str(formData, "account_id")),
     note: str(formData, "note") || null,
+    // Solo se toca el vínculo con el fijo si el formulario lo mostró.
+    ...(type !== "egreso"
+      ? { fixed_expense_id: null }
+      : formData.has("fixed_expense_id")
+        ? { fixed_expense_id: orNull(str(formData, "fixed_expense_id")) }
+        : {}),
   };
 
   const { error } = id

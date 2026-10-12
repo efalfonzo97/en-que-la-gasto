@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { saveTransaction, type FormState } from "@/app/(app)/actions";
-import type { Account, Category, Member, Transaction, TxType } from "@/lib/types";
+import type { Account, Category, FixedExpense, Member, Transaction, TxType } from "@/lib/types";
 import { parseAmount } from "@/lib/import";
 import { SplitField } from "@/components/split-field";
 
@@ -13,6 +13,8 @@ type Props = {
   meId: string;
   today: string;
   transaction?: Transaction;
+  /** Fijos activos, para indicar si el gasto paga alguno. */
+  fixed?: FixedExpense[];
 };
 
 const TYPES: { value: TxType; label: string }[] = [
@@ -21,7 +23,7 @@ const TYPES: { value: TxType; label: string }[] = [
   { value: "transferencia", label: "Ahorro" },
 ];
 
-export function TransactionForm({ members, categories, accounts, meId, today, transaction: tx }: Props) {
+export function TransactionForm({ members, categories, accounts, meId, today, transaction: tx, fixed = [] }: Props) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveTransaction, {});
   const [type, setType] = useState<TxType>(tx?.type ?? "egreso");
   const kind = type === "ingreso" ? "ingreso" : "egreso";
@@ -106,6 +108,19 @@ export function TransactionForm({ members, categories, accounts, meId, today, tr
         <label className="label" htmlFor="description">Descripción</label>
         <input className="input" id="description" name="description" defaultValue={tx?.description} placeholder="Ej: Supermercado" />
       </div>
+
+      {type === "egreso" && fixed.length > 0 && (
+        <div>
+          <label className="label" htmlFor="fixed_expense_id">¿Es el pago de un fijo?</label>
+          <select className="input" id="fixed_expense_id" name="fixed_expense_id" defaultValue={tx?.fixed_expense_id ?? ""}>
+            <option value="">No</option>
+            {fixed.map((f) => (
+              <option key={f.id} value={f.id}>{f.description}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted">Así ese fijo deja de figurar en Pendientes este mes.</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div>

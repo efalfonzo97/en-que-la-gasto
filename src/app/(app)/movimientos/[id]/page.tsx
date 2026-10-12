@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext } from "@/lib/data";
 import { formatMoney, today } from "@/lib/format";
-import { getProject, getTransaction } from "@/lib/queries";
+import { getFixedExpenses, getProject, getTransaction } from "@/lib/queries";
 import { formatPct, splitAmounts } from "@/lib/split";
 import { TransactionForm } from "@/components/transaction-form";
 import { deleteTransaction } from "../../actions";
@@ -16,7 +16,10 @@ export default async function EditTransactionPage({ params }: PageProps<"/movimi
   const shared = tx.type === "egreso" && !tx.for_member && ctx.members.length > 1;
   const parts = shared ? splitAmounts(tx, ctx.members) : [];
   const payer = ctx.members.find((m) => m.id === tx.paid_by);
-  const project = tx.project_id ? await getProject(ctx, tx.project_id) : null;
+  const [project, fixed] = await Promise.all([
+    tx.project_id ? getProject(ctx, tx.project_id) : Promise.resolve(null),
+    getFixedExpenses(ctx),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -64,6 +67,7 @@ export default async function EditTransactionPage({ params }: PageProps<"/movimi
         meId={ctx.me.id}
         today={today()}
         transaction={tx}
+        fixed={fixed}
       />
       <form action={deleteTransaction}>
         <input type="hidden" name="id" value={tx.id} />

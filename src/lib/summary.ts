@@ -66,7 +66,10 @@ export function monthSummary(
     spent,
     saved,
     pending,
-    available: income - spent - saved - pending,
+    /** Lo que queda hoy: ingresos menos lo ya gastado y lo apartado para ahorro. */
+    available: income - spent - saved,
+    /** Lo que quedaría después de pagar todo lo pendiente. */
+    afterPending: income - spent - saved - pending,
     perMember,
     sharedTotal,
     byCategory,
