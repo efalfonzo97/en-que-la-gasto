@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { getContext } from "@/lib/data";
-import { PERIODS, addDays, formatDay, formatMoney, monthLabel, resolveRange } from "@/lib/format";
-import { getFixedExpenses, getMonthTransactions, getRangeTransactions } from "@/lib/queries";
+import { PERIODS, addDays, formatCompact, formatDay, formatMoney, monthLabel, resolveRange } from "@/lib/format";
+import { getFixedExpenses, getMonthTransactions, getProjects, getRangeTransactions } from "@/lib/queries";
 import { categoryBreakdown } from "@/lib/summary";
-import { getView, isMine, withQuery } from "@/lib/view";
+import { getView, isMine, isMyFixed, withQuery } from "@/lib/view";
 import { sharesLabel } from "@/lib/split";
 import { CHART_COLORS, Donut } from "@/components/donut";
 import { ViewToggle } from "@/components/view-toggle";
 import { FixedList, fixedPendingInfo } from "@/components/fixed-list";
 import { Gauge } from "@/components/gauge";
 
-type Tab = "gastos" | "ingresos" | "todos";
+type Tab = "gastos" | "ingresos" | "ahorros" | "todos";
 type Status = "todos" | "pagado" | "pendiente";
 
 const STATUS_FILTERS: { value: Status; label: string }[] = [
@@ -23,17 +23,18 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
   const params = await searchParams;
   const range = resolveRange(params);
   const view = await getView(params.vista);
-  const tab: Tab = params.t === "ingresos" || params.t === "todos" ? params.t : "gastos";
+  const tab: Tab = params.t === "ingresos" || params.t === "ahorros" || params.t === "todos" ? params.t : "gastos";
   const categoryFilter = typeof params.cat === "string" ? params.cat : "";
   const status: Status = params.estado === "pagado" || params.estado === "pendiente" ? params.estado : "todos";
 
   const ctx = await getContext();
   // Los fijos se muestran del mes del período elegido.
   const fixedMonth = range.start.slice(0, 7);
-  const [all, fixed, fixedMonthTx] = await Promise.all([
+  const [all, fixed, fixedMonthTx, projects] = await Promise.all([
     getRangeTransactions(ctx, range.start, range.end),
     getFixedExpenses(ctx),
     getMonthTransactions(ctx, fixedMonth),
+    getProjects(ctx),
   ]);
   const fixedInfo = fixedPendingInfo(fixed, fixedMonthTx);
   const showFixed = params.fijos === "1";
@@ -41,19 +42,54 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
 
   const expenses = categoryBreakdown(visible, ctx.categories, "egreso");
   const incomes = categoryBreakdown(visible, ctx.categories, "ingreso");
-  const chart = tab === "ingresos" ? incomes : expenses;
+
+  // Ahorros del período, agrupados por proyecto.
+  const savedList = visible.filter((t) => t.currency === "ARS" && t.status === "pagado" && t.type === "transferencia");
+  const savingsRows = [
+    ...projects.map((p) => ({
+      id: p.id,
+      name: p.title,
+      emoji: "🎯",
+      total: savedList.filter((t) => t.project_id === p.id).reduce((sum, t) => sum + t.amount, 0),
+    })),
+    {
+      id: "general",
+      name: "Ahorro sin proyecto",
+      emoji: "🐷",
+      total: savedList.filter((t) => !t.project_id || !projects.some((p) => p.id === t.project_id)).reduce((sum, t) => sum + t.amount, 0),
+    },
+  ]
+    .filter((r) => r.total > 0)
+    .sort((a, b) => b.total - a.total);
+  const savings = { total: savedList.reduce((sum, t) => sum + t.amount, 0), rows: savingsRows };
+
+  const chart = tab === "ingresos" ? incomes : tab === "ahorros" ? savings : expenses;
+
+  // Pendiente del período: gastos pendientes y, en vista por mes, los fijos sin pagar.
+  const pendingTx = visible
+    .filter((t) => t.currency === "ARS" && t.type === "egreso" && t.status === "pendiente")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const visibleFixed = view === "yo" ? fixed.filter((f) => isMyFixed(f, ctx.me.id)) : fixed;
+  const pendingFixed = range.period === "mes" ? fixedPendingInfo(visibleFixed, fixedMonthTx).total : 0;
+  const pendingTotal = pendingTx + pendingFixed;
+  const freeAfterPending = incomes.total - expenses.total - savings.total - pendingTotal;
 
   // Cuánto de lo que entró se gastó, y cuánto quedó como oportunidad de ahorro.
   const spentPct = incomes.total > 0 ? (expenses.total / incomes.total) * 100 : null;
   const leftover = incomes.total - expenses.total;
   const savingPct = incomes.total > 0 ? Math.max((leftover / incomes.total) * 100, 0) : null;
 
-  const typeFilter = tab === "gastos" ? "egreso" : tab === "ingresos" ? "ingreso" : null;
-  const byTypeAndCategory = visible.filter(
-    (t) =>
-      (!typeFilter || t.type === typeFilter) &&
-      (!categoryFilter || (categoryFilter === "sin" ? !t.category_id : t.category_id === categoryFilter)),
-  );
+  const typeFilter = tab === "gastos" ? "egreso" : tab === "ingresos" ? "ingreso" : tab === "ahorros" ? "transferencia" : null;
+  const matchesCategory = (t: (typeof visible)[number]) => {
+    if (!categoryFilter) return true;
+    if (tab === "ahorros") {
+      return categoryFilter === "general"
+        ? !t.project_id || !projects.some((p) => p.id === t.project_id)
+        : t.project_id === categoryFilter;
+    }
+    return categoryFilter === "sin" ? !t.category_id : t.category_id === categoryFilter;
+  };
+  const byTypeAndCategory = visible.filter((t) => (!typeFilter || t.type === typeFilter) && matchesCategory(t));
   const statusCount = {
     todos: byTypeAndCategory.length,
     pagado: byTypeAndCategory.filter((t) => t.status === "pagado").length,
@@ -76,7 +112,11 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
     estado: status === "todos" ? null : status,
   };
   const link = (changes: Record<string, string | null>) => withQuery("/movimientos", { ...base, ...changes });
-  const filteredCategory = categoryFilter ? chart.rows.find((r) => r.id === categoryFilter) ?? expenses.rows.concat(incomes.rows).find((r) => r.id === categoryFilter) : null;
+  const filteredCategory = categoryFilter
+    ? (chart.rows as { id: string; name: string; emoji: string }[]).find((r) => r.id === categoryFilter) ??
+      expenses.rows.concat(incomes.rows).find((r) => r.id === categoryFilter)
+    : null;
+  const openList = Boolean(categoryFilter) || status !== "todos" || params.lista === "1";
 
   return (
     <div className="space-y-4">
@@ -121,39 +161,41 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
 
         <ViewToggle view={view} path="/movimientos" query={base} />
 
-        <div className="grid grid-cols-3 gap-1 text-sm" role="group" aria-label="Tipo">
+        <div className="grid grid-cols-4 gap-1 text-sm" role="group" aria-label="Tipo">
           {([
             ["gastos", "Gastos", expenses.total],
             ["ingresos", "Ingresos", incomes.total],
+            ["ahorros", "Ahorros", savings.total],
             ["todos", "Todos", null],
           ] as const).map(([value, label, total]) => (
             <Link
               key={value}
               href={link({ t: value === "gastos" ? null : value, cat: null })}
               aria-current={tab === value ? "true" : undefined}
-              className={`rounded-lg border px-2 py-1.5 text-center ${tab === value ? "border-accent bg-accent-soft font-semibold" : "border-border text-muted"}`}
+              className={`min-w-0 rounded-lg border px-1 py-1.5 text-center ${tab === value ? "border-accent bg-accent-soft font-semibold" : "border-border text-muted"}`}
             >
               <span className="block">{label}</span>
-              {total !== null && <span className="block text-xs tabular-nums">{formatMoney(total)}</span>}
+              {total !== null && <span className="block truncate text-[11px] tabular-nums">{formatCompact(total)}</span>}
             </Link>
           ))}
         </div>
 
         {tab === "todos" ? (
-          <dl className="grid grid-cols-3 gap-2 pt-1 text-sm">
-            <div>
-              <dt className="text-muted">Entró</dt>
-              <dd className="font-semibold tabular-nums text-income">{formatMoney(incomes.total)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">Salió</dt>
-              <dd className="font-semibold tabular-nums">{formatMoney(expenses.total)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">Balance</dt>
-              <dd className={`font-semibold tabular-nums ${incomes.total - expenses.total < 0 ? "text-danger" : ""}`}>
-                {formatMoney(incomes.total - expenses.total)}
-              </dd>
+          <dl className="divide-y divide-border pt-1 text-sm">
+            {[
+              { label: "Entró", value: incomes.total, className: "text-income" },
+              { label: "Gastado", value: -expenses.total },
+              { label: "Ahorrado", value: -savings.total },
+              ...(pendingTotal > 0 ? [{ label: range.period === "mes" ? "Pendiente (incluye fijos)" : "Pendiente", value: -pendingTotal }] : []),
+            ].map((row) => (
+              <div key={row.label} className="flex justify-between py-1.5">
+                <dt className="text-muted">{row.label}</dt>
+                <dd className={`tabular-nums ${row.className ?? ""}`}>{formatMoney(row.value)}</dd>
+              </div>
+            ))}
+            <div className="flex justify-between py-2">
+              <dt className="font-semibold">{pendingTotal > 0 ? "Libre tras pendientes" : "Queda libre"}</dt>
+              <dd className={`font-semibold tabular-nums ${freeAfterPending < 0 ? "text-danger" : ""}`}>{formatMoney(freeAfterPending)}</dd>
             </div>
           </dl>
         ) : (
@@ -214,7 +256,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/mov
         </Link>
       )}
 
-      <details className="card group" open={Boolean(categoryFilter) || status !== "todos"}>
+      <details id="listado" className="card group scroll-mt-4" open={openList}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
           <span className="font-semibold">Listado</span>
           <span className="flex items-center gap-2 text-sm">

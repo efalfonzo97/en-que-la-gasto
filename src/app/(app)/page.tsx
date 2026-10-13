@@ -35,11 +35,15 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   const mine = s.perMember.find((p) => p.member.id === ctx.me.id);
 
   // Torta del inicio: a dónde fueron los ingresos del mes.
-  const flow = [
-    { id: "gastos", label: "Gastos", total: s.spent, color: FLOW_COLORS.gastos },
-    { id: "pendientes", label: "Pendientes", total: s.pending, color: FLOW_COLORS.pendientes },
-    { id: "ahorros", label: "Ahorros", total: s.saved, color: FLOW_COLORS.ahorros },
-    { id: "disponible", label: "Libre tras pendientes", total: Math.max(s.afterPending, 0), color: FLOW_COLORS.disponible },
+  // Cada fila lleva a Movimientos con ese detalle, en el mismo mes y la misma vista.
+  const detail = (q: Record<string, string>) =>
+    withQuery("/movimientos", { p: "mes", f: `${month}-01`, vista: view, ...q });
+  const incomeHref = detail({ t: "ingresos", lista: "1" });
+  const flow: { id: string; label: string; total: number; shown?: number; color: string; href: string }[] = [
+    { id: "gastos", label: "Gastos", total: s.spent, color: FLOW_COLORS.gastos, href: detail({ estado: "pagado" }) },
+    { id: "pendientes", label: "Pendientes", total: s.pending, color: FLOW_COLORS.pendientes, href: detail({ t: "todos", estado: "pendiente", fijos: "1" }) },
+    { id: "ahorros", label: "Ahorros", total: s.saved, color: FLOW_COLORS.ahorros, href: detail({ t: "ahorros", lista: "1" }) },
+    { id: "disponible", label: "Libre tras pendientes", total: Math.max(s.afterPending, 0), shown: s.afterPending, color: FLOW_COLORS.disponible, href: detail({ t: "todos" }) },
   ];
   const fixedHref = withQuery("/movimientos", { mes: month, fijos: "1" }) + "#fijos";
   const flowTotal = flow.reduce((sum, f) => sum + f.total, 0);
@@ -95,16 +99,24 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             center={formatCompact(s.income)}
             caption="ingresos"
           />
-          <ul className="w-full min-w-0 space-y-1.5 text-sm">
-            <li className="flex items-center justify-between gap-2">
-              <span className="font-medium">Ingresos</span>
-              <span className="font-semibold tabular-nums text-income">{formatMoney(s.income)}</span>
+          <ul className="w-full min-w-0 divide-y divide-border text-sm">
+            <li>
+              <Link href={incomeHref} className="flex items-center gap-2 py-2">
+                <span className="min-w-0 flex-1 font-medium">Ingresos</span>
+                <span className="font-semibold tabular-nums text-income">{formatMoney(s.income)}</span>
+                <span className="text-muted" aria-hidden>›</span>
+              </Link>
             </li>
             {flow.map((f) => (
-              <li key={f.id} className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.color }} aria-hidden />
-                <span className="min-w-0 flex-1 truncate">{f.label}</span>
-                <span className="tabular-nums">{formatMoney(f.total)}</span>
+              <li key={f.id}>
+                <Link href={f.href} className="flex items-center gap-2 py-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.color }} aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{f.label}</span>
+                  <span className={`tabular-nums ${(f.shown ?? f.total) < 0 ? "text-danger" : ""}`}>
+                    {formatMoney(f.shown ?? f.total)}
+                  </span>
+                  <span className="text-muted" aria-hidden>›</span>
+                </Link>
               </li>
             ))}
           </ul>
