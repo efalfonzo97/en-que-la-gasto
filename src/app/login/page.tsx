@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  const { error } = await searchParams;
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-4">
       <div className="text-center">
@@ -9,7 +10,7 @@ export default function LoginPage() {
         <h1 className="mt-2 text-2xl font-bold">En qué la gasto</h1>
         <p className="text-muted">Las finanzas del hogar, entre los dos.</p>
       </div>
-      <LoginForm />
+      <LoginForm linkError={error === "link"} />
     </main>
   );
 }

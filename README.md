@@ -21,6 +21,7 @@ Stack: Next.js (App Router) en Vercel + Supabase (Auth y Postgres con RLS).
 1. Crear un proyecto en [supabase.com](https://supabase.com).
 2. En **SQL Editor > New query**, pegar el contenido de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y ejecutarlo. Después hacer lo mismo con [`supabase/migrations/0002_reparto.sql`](supabase/migrations/0002_reparto.sql).
 3. En **Authentication > URL Configuration**, poner la URL de Vercel como *Site URL* (por ejemplo `https://en-que-la-gasto.vercel.app`) y agregar `https://en-que-la-gasto.vercel.app/**` en *Redirect URLs*.
+   "¿Olvidaste tu contraseña?" funciona sin tocar nada más si el link se abre en el mismo dispositivo donde se pidió. Para que funcione desde cualquiera, cambiar el link del template en **Authentication > Emails > Reset password** por `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Elegir contraseña nueva</a>`. Supabase solo deja editar los templates con un SMTP propio (por ejemplo Resend), configurado en **Authentication > Emails > SMTP Settings**.
 4. En **Project Settings > API** copiar la *Project URL* y la clave *anon / publishable*.
 
 ### 2. Vercel
