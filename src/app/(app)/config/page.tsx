@@ -126,6 +126,11 @@ export default async function SettingsPage() {
         <Link href="/config/importar" className="btn-ghost w-full">Importar Excel</Link>
       </section>
 
+      <section className="card space-y-2">
+        <h2 className="font-semibold">Cuenta</h2>
+        <Link href="/nueva-clave" className="btn-ghost w-full">Cambiar contraseña</Link>
+      </section>
+
       <form action={signOut}>
         <button className="btn-ghost w-full">Cerrar sesión</button>
       </form>

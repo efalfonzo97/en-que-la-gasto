@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
+import { AuthLinkHandler } from "@/components/auth-link-handler";
 import "./globals.css";
 
 // Fuente incluida en el proyecto: no depende de Google Fonts al compilar.
@@ -20,7 +21,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        <AuthLinkHandler />
+        {children}
+      </body>
     </html>
   );
 }

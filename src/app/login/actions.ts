@@ -33,6 +33,18 @@ export async function signUp(_: AuthState, formData: FormData): Promise<AuthStat
   return { message: "Te mandamos un email para confirmar la cuenta. Abrilo desde este dispositivo." };
 }
 
+export async function requestPasswordReset(_: AuthState, formData: FormData): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim();
+  const h = await headers();
+  const origin = h.get("origin") ?? `https://${h.get("host")}`;
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/confirm?next=/nueva-clave`,
+  });
+  if (error) return { error: error.message };
+  return { message: "Si el email tiene cuenta, te llega un link para elegir una contraseña nueva. Abrilo desde este dispositivo." };
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
