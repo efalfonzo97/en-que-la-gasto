@@ -8,7 +8,7 @@ const geistSans = GeistSans;
 
 export const metadata: Metadata = {
   title: "En qué la gasto",
-  description: "Las finanzas del hogar, entre los dos.",
+  description: "Mirá cómo tirás guita.",
   appleWebApp: { capable: true, title: "En qué la gasto", statusBarStyle: "default" },
 };
 

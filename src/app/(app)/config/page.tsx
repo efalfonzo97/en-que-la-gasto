@@ -2,7 +2,9 @@ import Link from "next/link";
 import { getContext } from "@/lib/data";
 import { signOut } from "@/app/login/actions";
 import { isPinEmail } from "@/lib/pin";
-import { ChangePinForm, InviteForm } from "./forms";
+import { pinLoginOf } from "@/lib/pin-login";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ChangePinForm, InviteForm, RecoveryEmailForm } from "./forms";
 import {
   removePendingMember,
   saveAccount,
@@ -17,7 +19,8 @@ export default async function SettingsPage() {
   const ctx = await getContext();
   const pending = ctx.members.filter((m) => !m.user_id);
   const { data: claims } = await ctx.supabase.auth.getClaims();
-  const usesPin = isPinEmail(claims?.claims?.email);
+  const email = claims?.claims?.email;
+  const login = await pinLoginOf(createAdminClient(), ctx.userId);
 
   return (
     <div className="space-y-6">
@@ -162,10 +165,17 @@ export default async function SettingsPage() {
 
       <section className="card space-y-2">
         <h2 className="font-semibold">Cuenta</h2>
-        {usesPin ? (
-          <ChangePinForm />
+        {login ? (
+          <>
+            <p className="text-sm text-muted">Entrás como <b className="text-foreground">{login.username}</b>.</p>
+            <RecoveryEmailForm email={isPinEmail(email) ? "" : (email ?? "")} />
+            <ChangePinForm />
+          </>
         ) : (
-          <Link href="/nueva-clave" className="btn-ghost w-full">Cambiar contraseña</Link>
+          <>
+            <p className="text-sm text-muted">Ya no se entra con email: elegí un nombre y un PIN para seguir entrando.</p>
+            <Link href="/nueva-clave" className="btn w-full">Elegir nombre y PIN</Link>
+          </>
         )}
       </section>
 

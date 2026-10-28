@@ -3,46 +3,37 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { cleanName, isPinEmail } from "@/lib/pin";
+import { findPinLogin } from "@/lib/pin-login";
 
 export type AuthState = { error?: string; message?: string };
 
-export async function signIn(_: AuthState, formData: FormData): Promise<AuthState> {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: "Email o contraseña incorrectos." };
-  redirect("/");
-}
+/** "Olvidé mi PIN": manda el link al email del perfil (o al email escrito, para cuentas viejas). */
+export async function requestPinReset(_: AuthState, formData: FormData): Promise<AuthState> {
+  const input = cleanName(String(formData.get("name") ?? ""));
+  if (!input) return { error: "Poné tu nombre." };
 
-export async function signUp(_: AuthState, formData: FormData): Promise<AuthState> {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  if (password.length < 8) return { error: "La contraseña tiene que tener al menos 8 caracteres." };
+  let email = input.includes("@") ? input : null;
+  if (!email) {
+    const admin = createAdminClient();
+    const login = await findPinLogin(admin, input);
+    if (!login) return { error: "No encontramos ese nombre." };
+    const { data } = await admin.auth.admin.getUserById(login.user_id);
+    email = data.user?.email ?? null;
+    if (!email || isPinEmail(email)) {
+      return { error: "Ese usuario no tiene un email cargado. Pedile a alguien del hogar que te ayude." };
+    }
+  }
 
-  const h = await headers();
-  const origin = h.get("origin") ?? `https://${h.get("host")}`;
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { emailRedirectTo: `${origin}/auth/confirm` },
-  });
-  if (error) return { error: error.message };
-  if (data.session) redirect("/");
-  return { message: "Te mandamos un email para confirmar la cuenta. Abrilo desde este dispositivo." };
-}
-
-export async function requestPasswordReset(_: AuthState, formData: FormData): Promise<AuthState> {
-  const email = String(formData.get("email") ?? "").trim();
   const h = await headers();
   const origin = h.get("origin") ?? `https://${h.get("host")}`;
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/auth/confirm?next=/nueva-clave`,
   });
-  if (error) return { error: error.message };
-  return { message: "Si el email tiene cuenta, te llega un link para elegir una contraseña nueva. Abrilo desde este dispositivo." };
+  if (error) return { error: "No pudimos mandar el email. Probá de nuevo en un rato." };
+  return { message: "Te mandamos un link al email de tu perfil para elegir un PIN nuevo. Abrilo desde este dispositivo." };
 }
 
 export async function signOut() {

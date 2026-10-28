@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { changePin } from "@/app/login/pin-actions";
+import { changePin, setRecoveryEmail } from "@/app/login/pin-actions";
 import type { AuthState } from "@/app/login/actions";
 import { addMember, type FormState } from "../actions";
 
@@ -40,6 +40,21 @@ export function ChangePinForm() {
       {state.error && <p className="text-sm text-danger">{state.error}</p>}
       {state.message && <p className="text-sm text-accent">{state.message}</p>}
       <button className="btn-ghost w-full" disabled={pending}>Cambiar PIN</button>
+    </form>
+  );
+}
+
+export function RecoveryEmailForm({ email }: { email: string }) {
+  const [state, action, pending] = useActionState<AuthState, FormData>(setRecoveryEmail, {});
+  return (
+    <form action={action} className="space-y-2 border-b border-border pb-3">
+      <label className="label" htmlFor="recovery-email">Email para recuperar el PIN (opcional)</label>
+      <div className="flex gap-2">
+        <input className="input flex-1" id="recovery-email" name="email" type="email" autoComplete="email" defaultValue={email} placeholder="vos@email.com" />
+        <button className="btn-ghost" disabled={pending}>Guardar</button>
+      </div>
+      {state.error && <p className="text-sm text-danger">{state.error}</p>}
+      {state.message && <p className="text-sm text-accent">{state.message}</p>}
     </form>
   );
 }

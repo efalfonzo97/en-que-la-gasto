@@ -3,29 +3,18 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { cleanName, hashPin, LOCK_MINUTES, MAX_ATTEMPTS, pinEmail, pinError, verifyPin } from "@/lib/pin";
+import { cleanName, hashPin, isPinEmail, LOCK_MINUTES, MAX_ATTEMPTS, pinEmail, pinError, verifyPin } from "@/lib/pin";
+import { exactly, findPinLogin as findLogin, pinLoginOf } from "@/lib/pin-login";
 import type { AuthState } from "./actions";
-
-type PinLogin = {
-  user_id: string;
-  username: string;
-  pin_hash: string;
-  failed_attempts: number;
-  locked_until: string | null;
-};
 
 const field = (formData: FormData, key: string) => String(formData.get(key) ?? "");
 
-// ilike sin comodines: compara el nombre ignorando mayúsculas.
-const exactly = (name: string) => name.replace(/[\\%_]/g, "\\$&");
-
-async function findLogin(admin: ReturnType<typeof createAdminClient>, name: string) {
-  const { data } = await admin
-    .from("pin_logins")
-    .select("user_id, username, pin_hash, failed_attempts, locked_until")
-    .ilike("username", exactly(name))
-    .maybeSingle<PinLogin>();
-  return data;
+async function currentUserId() {
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims?.sub;
+  if (!userId) redirect("/login");
+  return userId;
 }
 
 function checkNewPin(formData: FormData): string | null {
@@ -165,20 +154,12 @@ export async function signInWithPin(_: AuthState, formData: FormData): Promise<A
 }
 
 export async function changePin(_: AuthState, formData: FormData): Promise<AuthState> {
-  const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims?.sub;
-  if (!userId) redirect("/login");
-
+  const userId = await currentUserId();
   const pinProblem = checkNewPin(formData);
   if (pinProblem) return { error: pinProblem };
 
   const admin = createAdminClient();
-  const { data: login } = await admin
-    .from("pin_logins")
-    .select("pin_hash")
-    .eq("user_id", userId)
-    .maybeSingle<Pick<PinLogin, "pin_hash">>();
+  const login = await pinLoginOf(admin, userId);
   if (!login || !(await verifyPin(field(formData, "current"), login.pin_hash))) {
     return { error: "El PIN actual no es correcto." };
   }
@@ -188,4 +169,42 @@ export async function changePin(_: AuthState, formData: FormData): Promise<AuthS
     .update({ pin_hash: await hashPin(field(formData, "pin")), failed_attempts: 0, locked_until: null })
     .eq("user_id", userId);
   return { message: "Listo, ya podés entrar con el PIN nuevo." };
+}
+
+/**
+ * Elegir PIN con la sesión ya abierta: desde el link de "olvidé mi PIN", o una
+ * cuenta vieja de email que todavía no tiene nombre y PIN.
+ */
+export async function setPin(_: AuthState, formData: FormData): Promise<AuthState> {
+  const userId = await currentUserId();
+  const pinProblem = checkNewPin(formData);
+  if (pinProblem) return { error: pinProblem };
+
+  const admin = createAdminClient();
+  const pin_hash = await hashPin(field(formData, "pin"));
+  if (await pinLoginOf(admin, userId)) {
+    await admin.from("pin_logins").update({ pin_hash, failed_attempts: 0, locked_until: null }).eq("user_id", userId);
+  } else {
+    const name = cleanName(field(formData, "name"));
+    if (!name) return { error: "Poné tu nombre." };
+    if (await findLogin(admin, name)) return { error: "Ese nombre ya está en uso. Probá agregándole tu apellido." };
+    const { error } = await admin.from("pin_logins").insert({ user_id: userId, username: name, pin_hash });
+    if (error) return { error: error.code === "23505" ? "Ese nombre ya está en uso." : "No se pudo guardar. Probá de nuevo." };
+  }
+  redirect("/");
+}
+
+/** Email del perfil, solo para recuperar el PIN. Vacío lo saca. */
+export async function setRecoveryEmail(_: AuthState, formData: FormData): Promise<AuthState> {
+  const userId = await currentUserId();
+  const email = field(formData, "email").trim().toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Ese email no parece válido." };
+  if (isPinEmail(email)) return { error: "Ese email no parece válido." };
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(userId, { email: email || pinEmail(), email_confirm: true });
+  if (error) {
+    return { error: error.code === "email_exists" ? "Ese email ya lo usa otra cuenta." : "No se pudo guardar el email." };
+  }
+  return { message: email ? "Listo. Si te olvidás el PIN, te mandamos el link a ese email." : "Sacamos el email del perfil." };
 }
