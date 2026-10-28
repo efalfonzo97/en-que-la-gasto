@@ -173,6 +173,20 @@ export async function updateMember(formData: FormData) {
   refresh();
 }
 
+export async function addMember(_: FormState, formData: FormData): Promise<FormState> {
+  const { supabase } = await getContext();
+  const { error } = await supabase.rpc("add_member", { member_name: str(formData, "name") });
+  if (error) return { error: error.message };
+  refresh();
+  return {};
+}
+
+export async function removePendingMember(formData: FormData) {
+  const { supabase } = await getContext();
+  await supabase.rpc("remove_pending_member", { member_id: str(formData, "id") });
+  refresh();
+}
+
 export async function saveCategory(formData: FormData) {
   const { supabase, me } = await getContext();
   const id = str(formData, "id");

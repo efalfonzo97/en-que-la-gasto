@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { getContext } from "@/lib/data";
 import { signOut } from "@/app/login/actions";
+import { isPinEmail } from "@/lib/pin";
+import { ChangePinForm, InviteForm } from "./forms";
 import {
+  removePendingMember,
   saveAccount,
   saveCategory,
   toggleAccountArchived,
@@ -12,7 +15,9 @@ import {
 
 export default async function SettingsPage() {
   const ctx = await getContext();
-  const pendingInvite = ctx.members.some((m) => !m.user_id);
+  const pending = ctx.members.filter((m) => !m.user_id);
+  const { data: claims } = await ctx.supabase.auth.getClaims();
+  const usesPin = isPinEmail(claims?.claims?.email);
 
   return (
     <div className="space-y-6">
@@ -27,11 +32,40 @@ export default async function SettingsPage() {
         <div className="rounded-xl bg-accent-soft p-3 text-sm">
           Código para invitar: <b className="font-mono text-base tracking-widest">{ctx.household.invite_code}</b>
           <p className="text-muted">
-            {pendingInvite
-              ? "Tu pareja crea su cuenta, elige “Unirme con un código” y pone este código."
-              : "Los dos ya están en el hogar."}
+            {pending.length
+              ? `Pasale el código y su nombre a ${pending.map((m) => m.name).join(", ")}. Al entrar elige “Tengo un código de invitación”, pone los dos y elige un PIN.`
+              : "Todos los invitados ya están en el hogar."}
           </p>
         </div>
+      </section>
+
+      <section className="card space-y-3">
+        <h2 className="font-semibold">Personas del hogar</h2>
+        <p className="text-sm text-muted">
+          Anotá a cada persona con el nombre que va a usar para entrar. Podés invitar a todas las que quieras.
+        </p>
+        <ul className="space-y-1 text-sm">
+          {ctx.members.map((m) => (
+            <li key={m.id} className="flex items-center justify-between gap-2">
+              <span>
+                {m.name}
+                {m.id === ctx.me.id && <span className="text-muted"> (vos)</span>}
+              </span>
+              {m.user_id ? (
+                <span className="text-xs text-accent">Ya entró</span>
+              ) : (
+                <span className="flex items-center gap-3">
+                  <span className="text-xs text-muted">Invitación pendiente</span>
+                  <form action={removePendingMember}>
+                    <input type="hidden" name="id" value={m.id} />
+                    <button className="text-xs text-muted underline">Quitar</button>
+                  </form>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        <InviteForm />
       </section>
 
       <section className="card space-y-3">
@@ -128,7 +162,11 @@ export default async function SettingsPage() {
 
       <section className="card space-y-2">
         <h2 className="font-semibold">Cuenta</h2>
-        <Link href="/nueva-clave" className="btn-ghost w-full">Cambiar contraseña</Link>
+        {usesPin ? (
+          <ChangePinForm />
+        ) : (
+          <Link href="/nueva-clave" className="btn-ghost w-full">Cambiar contraseña</Link>
+        )}
       </section>
 
       <form action={signOut}>

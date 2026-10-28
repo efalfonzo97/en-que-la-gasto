@@ -6,7 +6,7 @@ Stack: Next.js (App Router) en Vercel + Supabase (Auth y Postgres con RLS).
 
 ## Etapa 1 (esta versión)
 
-- Login con email y contraseña; un hogar compartido con código de invitación.
+- Login con email y contraseña, o con nombre y PIN; un hogar compartido con código de invitación para sumar a todas las personas que haga falta.
 - Cargar ingresos, gastos y ahorros: categoría con emoji, quién pagó, para quién (o compartido), medio de pago, pendiente o pagado.
 - Fijos del mes: alquiler, servicios y suscripciones como checklist; "Pagado" crea el movimiento.
 - Inicio: disponible del mes, lo que falta pagar, cuánto puso cada uno en lo compartido y la diferencia, gasto por categoría.
@@ -19,10 +19,10 @@ Stack: Next.js (App Router) en Vercel + Supabase (Auth y Postgres con RLS).
 ### 1. Supabase
 
 1. Crear un proyecto en [supabase.com](https://supabase.com).
-2. En **SQL Editor > New query**, pegar el contenido de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y ejecutarlo. Después hacer lo mismo con [`supabase/migrations/0002_reparto.sql`](supabase/migrations/0002_reparto.sql).
+2. En **SQL Editor > New query**, pegar el contenido de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y ejecutarlo. Después hacer lo mismo, en orden, con [`0002_reparto.sql`](supabase/migrations/0002_reparto.sql), [`0003_proyectos.sql`](supabase/migrations/0003_proyectos.sql) y [`0004_acceso_pin.sql`](supabase/migrations/0004_acceso_pin.sql).
 3. En **Authentication > URL Configuration**, poner la URL de Vercel como *Site URL* (por ejemplo `https://en-que-la-gasto.vercel.app`) y agregar `https://en-que-la-gasto.vercel.app/**` en *Redirect URLs*.
    "¿Olvidaste tu contraseña?" funciona sin tocar nada más si el link se abre en el mismo dispositivo donde se pidió. Para que funcione desde cualquiera, cambiar el link del template en **Authentication > Emails > Reset password** por `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Elegir contraseña nueva</a>`. Supabase solo deja editar los templates con un SMTP propio (por ejemplo Resend), configurado en **Authentication > Emails > SMTP Settings**.
-4. En **Project Settings > API** copiar la *Project URL* y la clave *anon / publishable*.
+4. En **Project Settings > API** copiar la *Project URL*, la clave *anon / publishable* y la clave *service_role / secret*. La secreta la usa solo el servidor para las cuentas con nombre y PIN (que no tienen email); nunca va en una variable `NEXT_PUBLIC_`.
 
 ### 2. Vercel
 
@@ -30,12 +30,14 @@ Stack: Next.js (App Router) en Vercel + Supabase (Auth y Postgres con RLS).
 2. Agregar las variables de entorno:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
 3. Deploy.
 
 ### 3. Primer uso
 
-1. Esteban crea su cuenta, crea el hogar y pone el nombre de su pareja.
-2. En **Ajustes** está el código de invitación: Laila crea su cuenta, elige "Unirme con un código" y lo pega.
+1. Esteban crea su cuenta (con email, o con "Nombre y PIN"), crea el hogar y pone el nombre de su pareja.
+2. En **Ajustes > Personas del hogar** se puede anotar a más gente con el nombre que va a usar. Cada invitado, en la pantalla de entrada, elige "Nombre y PIN" > "Tengo un código de invitación", pone el código de **Ajustes**, su nombre tal como lo anotaron y elige un PIN. Después entra con ese nombre y PIN.
+   Quien prefiera email puede crear su cuenta con email y usar "Unirme con un código".
 3. En **Ajustes > Importar Excel** se sube `Finanzas.xlsm` una sola vez.
 
 En el celular: abrir la app en el navegador y "Agregar a pantalla de inicio" para usarla como app.
