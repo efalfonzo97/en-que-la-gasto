@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "En qué la gasto",
     short_name: "En qué la gasto",
-    description: "Las finanzas del hogar, entre los dos.",
+    description: "Mirá cómo tirás guita.",
     start_url: "/",
     display: "standalone",
     background_color: "#f6f7f9",

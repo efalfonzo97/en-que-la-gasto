@@ -8,7 +8,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <div className="text-center">
         <Image src="/logo.png" alt="" width={96} height={130} priority className="mx-auto h-28 w-auto drop-shadow-md" />
         <h1 className="mt-2 text-2xl font-bold">En qué la gasto</h1>
-        <p className="text-muted">Las finanzas del hogar, entre los dos.</p>
+        <p className="text-muted">Mirá cómo tirás guita.</p>
       </div>
       <LoginForm linkError={error === "link"} />
     </main>
