@@ -3,6 +3,7 @@ import { getContext } from "@/lib/data";
 import { getProject } from "@/lib/queries";
 import { ProjectForm } from "@/components/project-form";
 import { deleteProject, toggleProjectArchived } from "../../actions";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export default async function EditProjectPage({ params }: PageProps<"/proyectos/[id]/editar">) {
   const { id } = await params;
@@ -21,7 +22,9 @@ export default async function EditProjectPage({ params }: PageProps<"/proyectos/
       </form>
       <form action={deleteProject} className="space-y-1">
         <input type="hidden" name="id" value={project.id} />
-        <button className="btn-ghost w-full text-danger">Borrar proyecto</button>
+        <ConfirmButton message="¿Borrar este proyecto? Los aportes quedan como ahorros comunes." className="btn-ghost w-full text-danger">
+          Borrar proyecto
+        </ConfirmButton>
         <p className="text-center text-xs text-muted">Los aportes quedan cargados como ahorros comunes.</p>
       </form>
     </div>
