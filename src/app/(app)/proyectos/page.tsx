@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { getContext } from "@/lib/data";
-import { getContributions, getProjects } from "@/lib/queries";
+import { getContributions, getEmergencyFund, getProjects } from "@/lib/queries";
 import { projectProgress } from "@/lib/projects";
 import { ProjectProgress } from "@/components/project-progress";
 
 export default async function ProjectsPage() {
   const ctx = await getContext();
-  const projects = await getProjects(ctx);
+  const [projects, { fund }] = await Promise.all([getProjects(ctx), getEmergencyFund(ctx)]);
   const contributions = projects.length ? await getContributions(ctx, projects.map((p) => p.id)) : [];
   const member = new Map(ctx.members.map((m) => [m.id, m]));
   const active = projects.filter((p) => !p.archived);
@@ -16,7 +16,7 @@ export default async function ProjectsPage() {
     <li key={p.id}>
       <Link href={`/proyectos/${p.id}`} className={`card block space-y-3 ${p.archived ? "opacity-70" : ""}`}>
         <div>
-          <p className="truncate font-semibold">🎯 {p.title}</p>
+          <p className="truncate font-semibold">{p.id === fund?.project_id ? "🛟" : "🎯"} {p.title}</p>
           <p className="text-xs text-muted">
             {p.for_member ? `De ${member.get(p.for_member)?.name}` : "Compartido"} · {p.currency === "USD" ? "en dólares" : "en pesos"}
           </p>
@@ -35,6 +35,16 @@ export default async function ProjectsPage() {
       <p className="text-sm text-muted">
         Objetivos para ahorrar juntos. Cada aporte se descuenta del disponible del mes como ahorro.
       </p>
+
+      {!fund?.project_id && (
+        <Link href="/emergencia" className="card flex items-center justify-between gap-3">
+          <span className="min-w-0">
+            <span className="block font-semibold">🛟 Fondo de emergencia</span>
+            <span className="block text-sm text-muted">Calculado con lo que gastan en lo esencial.</span>
+          </span>
+          <span className="text-accent">Armar ›</span>
+        </Link>
+      )}
 
       {active.length === 0 && (
         <div className="card space-y-3 text-center">

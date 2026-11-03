@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { getContext } from "@/lib/data";
 import { currentMonth, formatCompact, formatMoney, isMonth } from "@/lib/format";
-import { fixedStatus, getContributions, getFixedExpenses, getMonthTransactions, getProjects } from "@/lib/queries";
+import { fixedStatus, getBudgets, getContributions, getFixedExpenses, getMonthTransactions, getProjects } from "@/lib/queries";
+import { budgetRows } from "@/lib/budgets";
+import { formatMonths } from "@/lib/emergency";
+import { loadEmergency } from "@/lib/emergency-data";
+import { BudgetList } from "@/components/budget-list";
 import { projectProgress } from "@/lib/projects";
 import { monthSummary } from "@/lib/summary";
 import { getView, withQuery } from "@/lib/view";
@@ -20,19 +24,27 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   const month = isMonth(params.mes) ? params.mes : currentMonth();
   const view = await getView(params.vista);
   const ctx = await getContext();
-  const [transactions, fixed, allProjects] = await Promise.all([
+  const [transactions, fixed, allProjects, budgetData, emergency] = await Promise.all([
     getMonthTransactions(ctx, month),
     getFixedExpenses(ctx),
     getProjects(ctx),
+    getBudgets(ctx),
+    loadEmergency(ctx),
   ]);
   const personal = view === "yo";
 
-  // Proyectos activos (en "solo lo mío", los compartidos y los propios).
-  const projects = allProjects.filter((p) => !p.archived && (!personal || !p.for_member || p.for_member === ctx.me.id));
+  // Proyectos activos (en "solo lo mío", los compartidos y los propios). El fondo de emergencia tiene su propio bloque.
+  const emergencyId = emergency.project?.id;
+  const projects = allProjects.filter(
+    (p) => !p.archived && p.id !== emergencyId && (!personal || !p.for_member || p.for_member === ctx.me.id),
+  );
   const contributions = projects.length ? await getContributions(ctx, projects.map((p) => p.id)) : [];
   const projectRows = projects.map((p) => ({ project: p, progress: projectProgress(p, contributions, ctx.members) }));
   const s = monthSummary(transactions, fixedStatus(fixed, transactions), ctx.members, ctx.categories, personal ? ctx.me.id : null);
   const mine = s.perMember.find((p) => p.member.id === ctx.me.id);
+  const budgets = budgetRows(budgetData.budgets, ctx.categories, transactions);
+  const overBudget = budgets.filter((b) => b.level !== "ok").length;
+  const emergencyMonths = emergency.fund?.months ?? 6;
 
   // Torta del inicio: a dónde fueron los ingresos del mes.
   // Cada fila lleva a Movimientos con ese detalle, en el mismo mes y la misma vista.
@@ -162,6 +174,63 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                 </p>
               )}
             </>
+          )}
+        </section>
+      )}
+
+      {(emergency.ready || emergency.estimate.monthly > 0) && (
+        <section className="card space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold">🛟 Fondo de emergencia</h2>
+            <Link href="/emergencia" className="btn-ghost shrink-0 px-3 py-1.5 text-sm">
+              {emergency.project ? "Ver ›" : "Armar ›"}
+            </Link>
+          </div>
+          {!emergency.ready ? (
+            <p className="text-sm text-muted">Falta correr la migración 0005 en Supabase para activarlo (ver README).</p>
+          ) : emergency.project && emergency.progress ? (
+            <Link href="/emergencia" className="block">
+              <Gauge
+                pct={emergency.covered === null ? null : (emergency.covered / emergencyMonths) * 100}
+                color="#3b82f6"
+                label={
+                  emergency.covered === null
+                    ? "Meses cubiertos: sin calcular"
+                    : `Cubre ${formatMonths(emergency.covered)} de ${emergencyMonths} meses`
+                }
+                detail={`${formatMoney(emergency.progress.total, emergency.project.currency)} de ${formatMoney(emergency.project.target_amount, emergency.project.currency)}`}
+              />
+            </Link>
+          ) : emergency.estimate.monthly > 0 ? (
+            <p className="text-sm text-muted">
+              Gastan unos {formatMoney(emergency.estimate.monthly)} por mes en lo esencial. Cubrir 6 meses son{" "}
+              <span className="font-semibold text-foreground">{formatMoney(emergency.estimate.monthly * 6)}</span>.
+            </p>
+          ) : (
+            <p className="text-sm text-muted">Apartá plata para cubrir lo esencial si se corta un ingreso.</p>
+          )}
+        </section>
+      )}
+
+      {budgetData.ready && (
+        <section className="card space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="font-semibold">Presupuestos</h2>
+              {overBudget > 0 && (
+                <p className="text-sm text-danger">
+                  ⚠️ {overBudget === 1 ? "1 categoría está" : `${overBudget} categorías están`} cerca o pasadas del tope
+                </p>
+              )}
+            </div>
+            <Link href="/presupuestos" className="btn-ghost shrink-0 px-3 py-1.5 text-sm">
+              {budgets.length ? "Editar ›" : "Poner topes ›"}
+            </Link>
+          </div>
+          {budgets.length === 0 ? (
+            <p className="text-sm text-muted">Poné un tope por categoría y te aviso cuando llegues al 80%.</p>
+          ) : (
+            <BudgetList rows={budgets} />
           )}
         </section>
       )}

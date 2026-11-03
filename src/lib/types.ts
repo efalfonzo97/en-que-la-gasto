@@ -79,3 +79,14 @@ export type Project = {
 
 /** Porcentaje de cada miembro en un gasto compartido. null = partes iguales. */
 export type Shares = Record<string, number> | null;
+
+/** Tope mensual de gasto de una categoría (en pesos). */
+export type Budget = { category_id: string; amount: number };
+
+export type EmergencyFund = {
+  project_id: string | null;
+  /** Meses de gastos esenciales que se quieren cubrir. */
+  months: number;
+  /** Cotización para pasar a pesos un fondo en dólares. */
+  usd_rate: number | null;
+};

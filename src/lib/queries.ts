@@ -1,6 +1,6 @@
 import type { AppContext } from "@/lib/data";
 import { monthRange } from "@/lib/format";
-import type { FixedExpense, Project, Transaction } from "@/lib/types";
+import type { Budget, EmergencyFund, FixedExpense, Project, Transaction } from "@/lib/types";
 
 const TX_FIELDS =
   "id, date, type, status, paid_by, for_member, category_id, description, amount, currency, account_id, fixed_expense_id, note, shares, project_id, project_amount";
@@ -104,4 +104,32 @@ export async function getContributions(ctx: AppContext, projectIds?: string[]) {
   if (projectIds) query = query.in("project_id", projectIds);
   const { data } = await query.order("date", { ascending: false }).order("created_at", { ascending: false });
   return ((data ?? []) as Transaction[]).map(normalizeTx);
+}
+
+/**
+ * Presupuestos por categoría. ready es false si todavía no se corrió la
+ * migración 0005 en Supabase, para avisar en vez de romper la página.
+ */
+export async function getBudgets(ctx: AppContext): Promise<{ ready: boolean; budgets: Budget[] }> {
+  const { data, error } = await ctx.supabase
+    .from("category_budgets")
+    .select("category_id, amount")
+    .eq("household_id", ctx.me.household_id);
+  if (error) return { ready: false, budgets: [] };
+  return { ready: true, budgets: (data ?? []).map((b) => ({ category_id: b.category_id, amount: Number(b.amount) })) };
+}
+
+/** Configuración del fondo de emergencia (null si no se armó). ready igual que en getBudgets. */
+export async function getEmergencyFund(ctx: AppContext): Promise<{ ready: boolean; fund: EmergencyFund | null }> {
+  const { data, error } = await ctx.supabase
+    .from("emergency_funds")
+    .select("project_id, months, usd_rate")
+    .eq("household_id", ctx.me.household_id)
+    .maybeSingle();
+  if (error) return { ready: false, fund: null };
+  if (!data) return { ready: true, fund: null };
+  return {
+    ready: true,
+    fund: { project_id: data.project_id, months: Number(data.months), usd_rate: data.usd_rate == null ? null : Number(data.usd_rate) },
+  };
 }

@@ -6,6 +6,7 @@ import { getFixedExpenses, getProject, getTransaction } from "@/lib/queries";
 import { formatPct, splitAmounts } from "@/lib/split";
 import { TransactionForm } from "@/components/transaction-form";
 import { deleteTransaction } from "../../actions";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export default async function EditTransactionPage({ params }: PageProps<"/movimientos/[id]">) {
   const { id } = await params;
@@ -71,7 +72,9 @@ export default async function EditTransactionPage({ params }: PageProps<"/movimi
       />
       <form action={deleteTransaction}>
         <input type="hidden" name="id" value={tx.id} />
-        <button className="btn-ghost w-full text-danger">Borrar movimiento</button>
+        <ConfirmButton message="¿Borrar este movimiento? No se puede deshacer." className="btn-ghost w-full text-danger">
+          Borrar movimiento
+        </ConfirmButton>
       </form>
     </div>
   );
