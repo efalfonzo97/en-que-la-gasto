@@ -35,6 +35,12 @@ export function TransactionForm({ members, categories, accounts, meId, today, tr
   const [forMember, setForMember] = useState(() => initialFor(tx?.type ?? "egreso"));
   const [amountText, setAmountText] = useState(tx ? String(tx.amount).replace(".", ",") : "");
   const showSplit = type === "egreso" && forMember === "compartido";
+  // Por defecto lo pagó quien carga: solo se elige si es propio o compartido (del hogar).
+  // "Otra persona" abre los selectores completos, p. ej. para cargar algo que pagó la pareja.
+  const [detailed, setDetailed] = useState(
+    () => Boolean(tx) && (tx!.paid_by !== meId || (tx!.for_member !== null && tx!.for_member !== meId)),
+  );
+  const canSimplify = forMember === "compartido" || forMember === meId;
 
   function changeType(t: TxType) {
     setType(t);
@@ -122,24 +128,69 @@ export function TransactionForm({ members, categories, accounts, meId, today, tr
         </div>
       )}
 
+      {detailed ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="paid_by">{type === "ingreso" ? "Lo cobró" : "Pagó"}</label>
+              <select className="input" id="paid_by" name="paid_by" defaultValue={tx ? (tx.paid_by ?? "") : meId}>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="for_member">Para</label>
+              <select className="input" id="for_member" name="for_member" value={forMember} onChange={(e) => setForMember(e.target.value)}>
+                <option value="compartido">Compartido</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {canSimplify && (
+            <button type="button" className="text-sm text-accent" onClick={() => setDetailed(false)}>
+              {type === "ingreso" ? "Lo cobré yo" : "Lo pagué yo"}
+            </button>
+          )}
+        </div>
+      ) : (
+        <fieldset>
+          <legend className="label">¿De quién es?</legend>
+          <input type="hidden" name="paid_by" value={meId} />
+          <input type="hidden" name="for_member" value={forMember} />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="chip cursor-pointer">
+              <input
+                type="radio"
+                name="ownership"
+                checked={forMember === meId}
+                onChange={() => setForMember(meId)}
+                className="sr-only"
+              />
+              Propio
+            </label>
+            <label className="chip cursor-pointer">
+              <input
+                type="radio"
+                name="ownership"
+                checked={forMember === "compartido"}
+                onChange={() => setForMember("compartido")}
+                className="sr-only"
+              />
+              Compartido (hogar)
+            </label>
+            {members.length > 1 && (
+              <button type="button" className="ml-auto text-sm text-accent" onClick={() => setDetailed(true)}>
+                {type === "ingreso" ? "Lo cobró otra persona" : "Lo pagó otra persona"}
+              </button>
+            )}
+          </div>
+        </fieldset>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label" htmlFor="paid_by">{type === "ingreso" ? "Lo cobró" : "Pagó"}</label>
-          <select className="input" id="paid_by" name="paid_by" defaultValue={tx ? (tx.paid_by ?? "") : meId}>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label" htmlFor="for_member">Para</label>
-          <select className="input" id="for_member" name="for_member" value={forMember} onChange={(e) => setForMember(e.target.value)}>
-            <option value="compartido">Compartido</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </select>
-        </div>
         <div>
           <label className="label" htmlFor="date">Fecha</label>
           <input className="input" id="date" name="date" type="date" defaultValue={tx?.date ?? today} />
